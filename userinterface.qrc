@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file>UI/Android/Home.qml</file>
+        <file>UI/Android/HomeTabs.qml</file>
+        <file>UI/Android/Login.qml</file>
+        <file>UI/Android/Main.qml</file>
+        <file>UI/Android/Practice.qml</file>
+        <file>UI/Android/QueueReview.qml</file>
+        <file>UI/Android/Settings.qml</file>
+        <file>UI/Android/WordProfile.qml</file>
+        <file>UI/Desktop/Main.qml</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,5 @@
+build/
+build-android/
+UI/Android/
+*.user
+
