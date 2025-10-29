@@ -87,18 +87,17 @@ install(TARGETS appRadvin_Qt
 )
 
 
+#       UI/Android/Home.qml
+#       UI/Android/QueueReview.qml
+#       UI/Android/Practice.qml
+#       UI/Android/Settings.qml
+#       UI/Android/WordProfile.qml
+
 qt_add_resources(appRadvin_Qt
     PREFIX "/"
     FILES
         icons/book-green.svg
         icons/book-red.svg
-
-
-        UI/Android/Home.qml
-        UI/Android/QueueReview.qml
-        UI/Android/Practice.qml
-        UI/Android/Settings.qml
-        UI/Android/WordProfile.qml
 
         UI/Desktop/Home.qml
         UI/Desktop/Queue.qml
