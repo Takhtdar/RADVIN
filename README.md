@@ -7,6 +7,7 @@ RADVIN runs quietly in the background, listening to your clipboard as you read d
 1. Copy the Sentence: Select the sentence containing the word and copy it to your clipboard. do what you usually do!
 2. Review Later: Open RADVIN after your reading session to see all copied sentences listed.
 3. Mark Unknown Words: Tap or click the unknown word (e.g., "quixotic" in "His quixotic quest baffled me"). The word is bolded in Markdown (e.g., **quixotic**) and saved.
+4. send the `{{word}}` and `{{context}}` with API to LLM to get information about that word/sentence? 
 
 Non-Intrusive: Runs in the background, capturing clipboard data without disrupting your reading flow.
 Contextual Learning: Ties words to the books or articles you read, boosting retention through real-world context.
@@ -21,6 +22,8 @@ RADVIN is for avid readers, students, and language enthusiasts who:
 - Hate manual note-taking or outdated word-list books.
 - Use e-readers (like Kindle), phones, tablets, or desktops for reading.
 
+# Prompting
+create a text file, write your prompt, and pass the bold word with {{word}}, and sentence using {{context}} to LLM.
 
 # License
 MIT License - Free to use, modify, and share. See LICENSE for details.
