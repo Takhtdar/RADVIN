@@ -4,10 +4,9 @@ RADVIN is a cross-platform application designed to make reading an active, engag
 # How It Works
 RADVIN runs quietly in the background, listening to your clipboard as you read digital content (e-books, articles, or documents). When you encounter an unknown word:
 
-1. Enable the app from the system tray
-2. Copy the Sentence: Select the sentence containing the word and copy it to your clipboard. do what you usually do!
-3. Review Later: Open RADVIN after your reading session to see all copied sentences listed.
-4. Mark Unknown Words: Tap or click the unknown word (e.g., "quixotic" in "His quixotic quest baffled me"). The word is bolded in Markdown (e.g., **quixotic**) and saved.
+1. Copy the Sentence: Select the sentence containing the word and copy it to your clipboard. do what you usually do!
+2. Review Later: Open RADVIN after your reading session to see all copied sentences listed.
+3. Mark Unknown Words: Tap or click the unknown word (e.g., "quixotic" in "His quixotic quest baffled me"). The word is bolded in Markdown (e.g., **quixotic**) and saved.
 
 Non-Intrusive: Runs in the background, capturing clipboard data without disrupting your reading flow.
 Contextual Learning: Ties words to the books or articles you read, boosting retention through real-world context.
