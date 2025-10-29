@@ -32,7 +32,7 @@ void OllamaProvider::sendPrompt(const QString &prompt, const QString &model)
 
     QNetworkRequest request;
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setUrl(QUrl("http://127.0.0.1:11434/api/chat"));
+    request.setUrl(QUrl(SettingsManager::instance()->getValue("provider_address", "http://127.0.0.1:11434/api/chat").toString()));
 
     m_networkManager->post(request, requestData);
 }
