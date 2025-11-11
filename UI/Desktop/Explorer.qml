@@ -225,7 +225,9 @@ Item {
             id: viewOptions
             Layout.alignment: Qt.AlignVCenter
             Layout.preferredWidth: 160
+            Layout.rightMargin: 10
             textRole: "display"
+
             model: [
                 { display: "List" },
                 { display: "Table" }
