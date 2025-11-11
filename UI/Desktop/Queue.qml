@@ -80,8 +80,8 @@ Item {
                 horizontalAlignment: Text.AlignJustify
                 text: "📋 Queue: " + unsentCount + " sentences left"
                 font.bold: true
-                bottomPadding: 10
-                topPadding: 10
+                bottomPadding: 20
+                topPadding: 25
                 font.pointSize: 14
 
                 Component.onCompleted: {
@@ -98,9 +98,6 @@ Item {
                 Layout.fillHeight: true
                 Layout.preferredHeight: 1
 
-
-
-
                 ScrollView {
                     anchors.fill: parent
                     clip: true
@@ -111,6 +108,7 @@ Item {
                         Item {
                             id: paragraphContainer
                             width: textContainer.width
+                            implicitHeight: paragraphContainer.height
 
 
                             property var wordData: [] // keeps {word, bold}
@@ -155,7 +153,9 @@ Item {
                                             color: "black";
                                             width: ${maxWidth};
                                             wrapMode: Text.WrapAnywhere;
-                                            topPadding: 20
+                                            topPadding: 15
+                                            rightPadding: 15
+                                            leftPadding: 15
                                             MouseArea {
                                                 anchors.fill: parent;
                                                 hoverEnabled: true;
@@ -194,6 +194,9 @@ Item {
                     //}
                 }
             }
+
+            Item { Layout.fillWidth: true; height: 100 }
+
 
             RowLayout {
                 id: buttons

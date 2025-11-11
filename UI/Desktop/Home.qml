@@ -78,7 +78,9 @@ Rectangle {
             id: queueBtn
             width: parent.width - 20
             height: 70
-            color: "red"
+            color: "white"
+            border.color: "lightgray"
+
             anchors.top: burgerBtn.bottom
             anchors.left: sidebar.left
             anchors.leftMargin: 10
@@ -89,7 +91,7 @@ Rectangle {
 
             Text {
                 text: "Queue"
-                color: "white"
+                color: "black"
                 font.pointSize: 18
                 anchors.centerIn: parent
             }
@@ -111,7 +113,8 @@ Rectangle {
             id: explorerBtn
             width: parent.width - 20
             height: 70
-            color: "green"
+            color: "white"
+            border.color: "lightgray"
             anchors.top: queueBtn.bottom
             anchors.left: sidebar.left
             anchors.leftMargin: 10
@@ -122,7 +125,7 @@ Rectangle {
 
             Text {
                 text: "Explorer"
-                color: "white"
+                color: "black"
                 anchors.centerIn: parent
                 font.pointSize: 18
             }
@@ -145,7 +148,7 @@ Rectangle {
             id: practiceBtn
             width: parent.width - 20
             height: 70
-            color: "lightgreen"
+            color: "lightgray"
             anchors.top: explorerBtn.bottom
             anchors.left: sidebar.left
             anchors.leftMargin: 10
