@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
+#include "src/settingsManager.h"
 
 OllamaProvider::OllamaProvider(QObject *parent)
     : QObject(parent)

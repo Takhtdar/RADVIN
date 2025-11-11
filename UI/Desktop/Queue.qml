@@ -103,85 +103,89 @@ Item {
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-                    Item {
-                        id: paragraphContainer
-                        width: textContainer.width
 
-                        property var wordData: [] // keeps {word, bold}
-                        property var wordItems: []
+                        Item {
+                            id: paragraphContainer
+                            width: textContainer.width
 
-                        function generateWords() {
-                            // clear old
-                            for (var i = 0; i < wordItems.length; i++) {
-                                wordItems[i].destroy();
-                            }
-                            wordItems = [];
+                            property var wordData: [] // keeps {word, bold}
+                            property var wordItems: []
 
-                            if (currentSentenceText === "")
-                                return;
-
-                            wordData = [];
-                            var words = currentSentenceText.split(/\s+/);
-                            var yPos = 0;
-                            var xPos = 10;
-                            var maxWidth = textContainer.width - 20;
-                            var lineHeight = 26;
-
-                            for (var w = 0; w < words.length; w++) {
-                                var word = words[w];
-                                var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false; }', paragraphContainer);
-                                tempText.width; // force measure
-                                var wordWidth = tempText.contentWidth;
-                                tempText.destroy();
-
-                                if (xPos + wordWidth > maxWidth) {
-                                    xPos = 10;
-                                    yPos += lineHeight;
+                            function generateWords() {
+                                // clear old
+                                for (var i = 0; i < wordItems.length; i++) {
+                                    wordItems[i].destroy();
                                 }
+                                wordItems = [];
 
-                                var textObj = Qt.createQmlObject(`
-                                    import QtQuick 2.15;
-                                    Text {
-                                        text: "${word.replace(/"/g, '\\"')}";
-                                        x: ${xPos};
-                                        y: ${yPos};
-                                        font.pointSize: 14;
-                                        color: "black";
-                                        MouseArea {
-                                            anchors.fill: parent;
-                                            hoverEnabled: true;
-                                            onClicked: {
-                                                parent.font.bold = !parent.font.bold;
-                                                paragraphContainer.updateFormattedText();
+                                if (currentSentenceText === "")
+                                    return;
+
+                                wordData = [];
+                                var words = currentSentenceText.split(/\s+/);
+                                var yPos = 0;
+                                var xPos = 10;
+                                var maxWidth = textContainer.width - 20;
+                                var lineHeight = 26;
+
+                                for (var w = 0; w < words.length; w++) {
+                                    var word = words[w];
+                                    var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false; }', paragraphContainer);
+                                    tempText.width; // force measure
+                                    var wordWidth = tempText.contentWidth;
+                                    tempText.destroy();
+
+                                    if (xPos + wordWidth > maxWidth) {
+                                        xPos = 10;
+                                        yPos += lineHeight;
+                                    }
+
+                                    var textObj = Qt.createQmlObject(`
+                                        import QtQuick 2.15;
+                                        Text {
+                                            text: "${word.replace(/"/g, '\\"')}";
+                                            x: ${xPos};
+                                            y: ${yPos};
+                                            font.pointSize: 14;
+                                            color: "black";
+                                            width: ${maxWidth};
+                                            wrapMode: Text.WrapAnywhere;
+                                            MouseArea {
+                                                anchors.fill: parent;
+                                                hoverEnabled: true;
+                                                onClicked: {
+                                                    parent.font.bold = !parent.font.bold;
+                                                    paragraphContainer.updateFormattedText();
+                                                }
                                             }
                                         }
-                                    }
-                                `, paragraphContainer);
-                                paragraphContainer.wordData.push({ word: word, bold: false });
-                                paragraphContainer.wordItems.push(textObj);
-                                xPos += wordWidth + 5;
-                            }
-                            paragraphContainer.height = yPos + lineHeight + 10;
-                            updateFormattedText();
-                        }
-
-                        function updateFormattedText() {
-                            var boldStates = [];
-                            var formatted = "";
-                            for (var i = 0; i < wordItems.length; i++) {
-                                var textObj = wordItems[i];
-                                var isBold = textObj.font.bold;
-                                var word = textObj.text;
-                                boldStates.push(isBold);
-                                if (isBold) {
-                                    formatted += "**" + word + "** ";
-                                } else {
-                                    formatted += word + " ";
+                                    `, paragraphContainer);
+                                    paragraphContainer.wordData.push({ word: word, bold: false });
+                                    paragraphContainer.wordItems.push(textObj);
+                                    xPos += wordWidth + 5;
                                 }
+                                paragraphContainer.height = yPos + lineHeight + 10;
+                                updateFormattedText();
                             }
-                            formattedSentenceText = formatted.trim();
+
+                            function updateFormattedText() {
+                                var boldStates = [];
+                                var formatted = "";
+                                for (var i = 0; i < wordItems.length; i++) {
+                                    var textObj = wordItems[i];
+                                    var isBold = textObj.font.bold;
+                                    var word = textObj.text;
+                                    boldStates.push(isBold);
+                                    if (isBold) {
+                                        formatted += "**" + word + "** ";
+                                    } else {
+                                        formatted += word + " ";
+                                    }
+                                }
+                                formattedSentenceText = formatted.trim();
+                            }
                         }
-                    }
+                    //}
                 }
             }
 
