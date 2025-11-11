@@ -15,7 +15,7 @@ Item {
     ListView {
         id: sentenceList
         anchors.fill: parent
-        spacing: 8
+        // spacing: 8
         clip: true
         interactive: false
         model: ListModel {}
@@ -67,10 +67,11 @@ Item {
         z: 10
 
         ColumnLayout{
-            Layout.fillWidth: true
+            Layout.preferredWidth: parent.width * 4 / 7  // Two-thirds of the RowLayout width
             Layout.fillHeight: true
-            Layout.preferredWidth: 0    // Forces equal distribution
-            Layout.alignment: Qt.AlignLeft  // Aligns to left half of row
+            //Layout.fillWidth: true
+            //Layout.preferredWidth: 0    // Forces equal distribution
+            //Layout.alignment: Qt.AlignLeft  // Aligns to left half of row
 
 
             Text {
@@ -78,6 +79,9 @@ Item {
                 wrapMode: Text.WrapAnywhere
                 horizontalAlignment: Text.AlignJustify
                 text: "📋 Queue: " + unsentCount + " sentences left"
+                font.bold: true
+                bottomPadding: 10
+                topPadding: 10
                 font.pointSize: 14
 
                 Component.onCompleted: {
@@ -89,12 +93,12 @@ Item {
             Rectangle {
                 id: textContainer
                 radius: 8
-                color: "white"
-                border.color: "lightgray"
-                border.width: 1
+                color: "#f9fafb"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredHeight: 1
+
+
 
 
                 ScrollView {
@@ -107,6 +111,7 @@ Item {
                         Item {
                             id: paragraphContainer
                             width: textContainer.width
+
 
                             property var wordData: [] // keeps {word, bold}
                             property var wordItems: []
@@ -130,7 +135,7 @@ Item {
 
                                 for (var w = 0; w < words.length; w++) {
                                     var word = words[w];
-                                    var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false; }', paragraphContainer);
+                                    var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false;  }', paragraphContainer);
                                     tempText.width; // force measure
                                     var wordWidth = tempText.contentWidth;
                                     tempText.destroy();
@@ -150,6 +155,7 @@ Item {
                                             color: "black";
                                             width: ${maxWidth};
                                             wrapMode: Text.WrapAnywhere;
+                                            topPadding: 20
                                             MouseArea {
                                                 anchors.fill: parent;
                                                 hoverEnabled: true;
@@ -191,8 +197,10 @@ Item {
 
             RowLayout {
                 id: buttons
-                Layout.fillWidth: true  // Use Layout.fillWidth instead of anchors
-                height: 50
+                Layout.fillWidth: true
+                height: 150
+                Layout.bottomMargin: 20
+
 
                 Button {
                     id: discardButton
@@ -216,6 +224,7 @@ Item {
                     text: "🚀 Explore it"
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignRight
+
                     onClicked: {
                         if (currentSentenceId !== -1) {
                             console.log("Passing formatted:", formattedSentenceText);
@@ -228,25 +237,17 @@ Item {
         }
 
         ColumnLayout{
-            Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredWidth: 0    // Forces equal distribution
-            Layout.alignment: Qt.AlignRight // Aligns to right half of row
-
-            Text {
-                id: metadataLabel
-                Layout.fillWidth: true  // Takes 50% of available space
-                text: "Metadata Options"
-                font.pointSize: 14
-                horizontalAlignment: Text.AlignHCenter
-                z: 100
-            }
+            Layout.preferredWidth: parent.width * 3 / 7      // One-third of the RowLayout width
+            // Remove these lines:
+            // Layout.fillWidth: true
+            // Layout.preferredWidth: 0
+            // Layout.alignment: Qt.AlignRight
 
             Rectangle {
                 id: containerMetadata
                 radius: 8
-                border.color: "lightgray"
-                border.width: 1
+                color: "#f9fafb"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.preferredHeight: 1

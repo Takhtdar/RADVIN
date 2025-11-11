@@ -211,15 +211,16 @@ Rectangle {
 
         Rectangle{
             id: mainScreen
+            height: parent.height
             width: parent.width - 70
-            height: parent.height - 20
+            // height: parent.height - 20
             color: "white"
             anchors.bottom: parent.bottom
             anchors.right: parent.right
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            anchors.topMargin: 10
-            anchors.bottomMargin: 10
+            // anchors.leftMargin: 10
+            // anchors.rightMargin: 10
+            // anchors.topMargin: 10
+            // anchors.bottomMargin: 10
             radius: 8
             z: 1
 
