@@ -9,8 +9,9 @@ Item {
 
     property int currentSentenceId: -1
     property string currentSentenceText: ""
+    property string currentSentenceType: ""
     property int unsentCount: 0
-    property string formattedSentenceText: "" // ✅ holds formatted (bolded) text
+    property string formattedSentenceText: ""
 
     ListView {
         id: sentenceList
@@ -39,20 +40,22 @@ Item {
             for (var i = 0; i < sentences.length; i++) {
                 model.append({
                     "id": sentences[i].id,
-                    "text": sentences[i].text
+                    "text": sentences[i].text,
+                    "type": sentences[i].type
                 });
             }
             unsentCount = dbManager.getQueueCount();
             if (sentences.length > 0) {
-                loadSentenceIntoOverlay(sentences[0].id, sentences[0].text);
+                loadSentenceIntoOverlay(sentences[0].id, sentences[0].text, sentences[0].type);
             } else {
-                loadSentenceIntoOverlay(-1, "No sentence left! read more.");
+                loadSentenceIntoOverlay(-1, "No sentence left! read more.", "");
             }
         }
 
-        function loadSentenceIntoOverlay(id, text) {
+        function loadSentenceIntoOverlay(id, text, type) {
             currentSentenceId = id;
             currentSentenceText = text;
+            currentSentenceType = type;
             formattedSentenceText = text;
             paragraphContainer.generateWords();
         }
@@ -69,10 +72,6 @@ Item {
         ColumnLayout{
             Layout.preferredWidth: parent.width * 4 / 7  // Two-thirds of the RowLayout width
             Layout.fillHeight: true
-            //Layout.fillWidth: true
-            //Layout.preferredWidth: 0    // Forces equal distribution
-            //Layout.alignment: Qt.AlignLeft  // Aligns to left half of row
-
 
             Text {
                 id: numberOfItemsInQueue
@@ -105,93 +104,92 @@ Item {
                     ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
 
-                        Item {
-                            id: paragraphContainer
-                            width: textContainer.width
-                            implicitHeight: paragraphContainer.height
+                    Item {
+                        id: paragraphContainer
+                        width: textContainer.width
+                        implicitHeight: paragraphContainer.height
 
 
-                            property var wordData: [] // keeps {word, bold}
-                            property var wordItems: []
+                        property var wordData: [] // keeps {word, bold}
+                        property var wordItems: []
 
-                            function generateWords() {
-                                // clear old
-                                for (var i = 0; i < wordItems.length; i++) {
-                                    wordItems[i].destroy();
+                        function generateWords() {
+                            // clear old
+                            for (var i = 0; i < wordItems.length; i++) {
+                                wordItems[i].destroy();
+                            }
+                            wordItems = [];
+
+                            if (currentSentenceText === "")
+                                return;
+
+                            wordData = [];
+                            var words = currentSentenceText.split(/\s+/);
+                            var yPos = 0;
+                            var xPos = 10;
+                            var maxWidth = textContainer.width - 20;
+                            var lineHeight = 26;
+
+                            for (var w = 0; w < words.length; w++) {
+                                var word = words[w];
+                                var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false;  }', paragraphContainer);
+                                tempText.width; // force measure
+                                var wordWidth = tempText.contentWidth;
+                                tempText.destroy();
+
+                                if (xPos + wordWidth > maxWidth) {
+                                    xPos = 10;
+                                    yPos += lineHeight;
                                 }
-                                wordItems = [];
 
-                                if (currentSentenceText === "")
-                                    return;
-
-                                wordData = [];
-                                var words = currentSentenceText.split(/\s+/);
-                                var yPos = 0;
-                                var xPos = 10;
-                                var maxWidth = textContainer.width - 20;
-                                var lineHeight = 26;
-
-                                for (var w = 0; w < words.length; w++) {
-                                    var word = words[w];
-                                    var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false;  }', paragraphContainer);
-                                    tempText.width; // force measure
-                                    var wordWidth = tempText.contentWidth;
-                                    tempText.destroy();
-
-                                    if (xPos + wordWidth > maxWidth) {
-                                        xPos = 10;
-                                        yPos += lineHeight;
-                                    }
-
-                                    var textObj = Qt.createQmlObject(`
-                                        import QtQuick 2.15;
-                                        Text {
-                                            text: "${word.replace(/"/g, '\\"')}";
-                                            x: ${xPos};
-                                            y: ${yPos};
-                                            font.pointSize: 14;
-                                            color: "black";
-                                            width: ${maxWidth};
-                                            wrapMode: Text.WrapAnywhere;
-                                            topPadding: 15
-                                            rightPadding: 15
-                                            leftPadding: 15
-                                            MouseArea {
-                                                anchors.fill: parent;
-                                                hoverEnabled: true;
-                                                onClicked: {
-                                                    parent.font.bold = !parent.font.bold;
-                                                    paragraphContainer.updateFormattedText();
-                                                }
+                                var textObj = Qt.createQmlObject(`
+                                    import QtQuick 2.15;
+                                    Text {
+                                        text: "${word.replace(/"/g, '\\"')}";
+                                        x: ${xPos};
+                                        y: ${yPos};
+                                        font.pointSize: 14;
+                                        color: "black";
+                                        width: ${maxWidth};
+                                        wrapMode: Text.WrapAnywhere;
+                                        topPadding: 15
+                                        rightPadding: 15
+                                        leftPadding: 15
+                                        MouseArea {
+                                            anchors.fill: parent;
+                                            hoverEnabled: true;
+                                            onClicked: {
+                                                parent.font.bold = !parent.font.bold;
+                                                paragraphContainer.updateFormattedText();
                                             }
                                         }
-                                    `, paragraphContainer);
-                                    paragraphContainer.wordData.push({ word: word, bold: false });
-                                    paragraphContainer.wordItems.push(textObj);
-                                    xPos += wordWidth + 5;
-                                }
-                                paragraphContainer.height = yPos + lineHeight + 10;
-                                updateFormattedText();
-                            }
-
-                            function updateFormattedText() {
-                                var boldStates = [];
-                                var formatted = "";
-                                for (var i = 0; i < wordItems.length; i++) {
-                                    var textObj = wordItems[i];
-                                    var isBold = textObj.font.bold;
-                                    var word = textObj.text;
-                                    boldStates.push(isBold);
-                                    if (isBold) {
-                                        formatted += "**" + word + "** ";
-                                    } else {
-                                        formatted += word + " ";
                                     }
-                                }
-                                formattedSentenceText = formatted.trim();
+                                `, paragraphContainer);
+                                paragraphContainer.wordData.push({ word: word, bold: false });
+                                paragraphContainer.wordItems.push(textObj);
+                                xPos += wordWidth + 5;
                             }
+                            paragraphContainer.height = yPos + lineHeight + 10;
+                            updateFormattedText();
                         }
-                    //}
+
+                        function updateFormattedText() {
+                            var boldStates = [];
+                            var formatted = "";
+                            for (var i = 0; i < wordItems.length; i++) {
+                                var textObj = wordItems[i];
+                                var isBold = textObj.font.bold;
+                                var word = textObj.text;
+                                boldStates.push(isBold);
+                                if (isBold) {
+                                    formatted += "**" + word + "** ";
+                                } else {
+                                    formatted += word + " ";
+                                }
+                            }
+                            formattedSentenceText = formatted.trim();
+                        }
+                    }
                 }
             }
 
@@ -214,7 +212,7 @@ Item {
                     onClicked: {
                         console.log("Discard ID:", currentSentenceId);
                         if (currentSentenceId !== -1) {
-                            dbManager.discardSentence(currentSentenceId);
+                            dbManager.discardQueueItem(currentSentenceId, currentSentenceType);
                             sentenceList.loadSentences();
                         }
                     }
@@ -231,7 +229,7 @@ Item {
                     onClicked: {
                         if (currentSentenceId !== -1) {
                             console.log("Passing formatted:", formattedSentenceText);
-                            dbManager.markToProcessSentence(currentSentenceId, formattedSentenceText);
+                            dbManager.markQueueItemToProcess(currentSentenceId, formattedSentenceText, currentSentenceType);
                             sentenceList.loadSentences();
                         }
                     }
@@ -242,10 +240,6 @@ Item {
         ColumnLayout{
             Layout.fillHeight: true
             Layout.preferredWidth: parent.width * 3 / 7      // One-third of the RowLayout width
-            // Remove these lines:
-            // Layout.fillWidth: true
-            // Layout.preferredWidth: 0
-            // Layout.alignment: Qt.AlignRight
 
             Rectangle {
                 id: containerMetadata

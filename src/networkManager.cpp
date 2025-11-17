@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QDir>
 #include <QRegularExpression>
+#include <qsqlquery.h>
 #include "src/databaseManager.h"
 #include "src/ollamaProvider.h"
 #include "src/settingsManager.h"
@@ -25,9 +26,10 @@ NetworkManager::NetworkManager(DatabaseManager *dbManager, QObject *parent)
     , m_dbManager(dbManager)
 {
     connect(m_server, &QTcpServer::newConnection, this, &NetworkManager::handleNewConnection);
+    connect(m_dbManager, &DatabaseManager::queueItemMarkedForProcessing,
+            this, &NetworkManager::handleQueueItemMarked);
+
 }
-
-
 
 
 void NetworkManager::startServer() {
@@ -223,57 +225,190 @@ QString NetworkManager::readPromptFromFile(const QString &filePath, const QStrin
     return prompt.trimmed();
 }
 
-void NetworkManager::handleSentenceMarked(int id, const QString &formattedText) {
-    QString provider = SettingsManager::instance()->getValue("provider", "Ollama").toString();
-    QString model = SettingsManager::instance()->getValue("model", "llama3.1-16k:latest").toString();
 
-    qDebug() << "🚀 Processing sentence ID:" << id << "with provider:" << provider;
 
-    if (provider.compare("Ollama", Qt::CaseInsensitive) == 0) {
-        // Get sentence prompt file path from settings, fallback to default
-        QString sentencePromptFile = SettingsManager::instance()->getValue("sentence_prompt_file", getDefaultPromptFilePath("sentence")).toString();
-        QString sentencePrompt = readPromptFromFile(sentencePromptFile, "", formattedText);
 
-        if (sentencePrompt.isEmpty()) {
-            // Fallback to hardcoded prompt if file reading fails
-            sentencePrompt = QString("Analyze this sentence and explain the vocabulary: '%1'").arg(formattedText);
-        }
 
-        qDebug() << "🎯 Ollama sentence prompt:" << sentencePrompt;
 
-        QStringList boldWords = extractBoldWords(formattedText);
-        qDebug() << "🧠 Extracted bold words:" << boldWords;
 
-        OllamaProvider *mainProvider = new OllamaProvider(this);
-        connect(mainProvider, &OllamaProvider::responseReceived, [this, id](const QString &response) {
-            qDebug() << "💬 Sentence analysis response:" << response;
-            m_dbManager->updateSentenceWithAIAnalysis(id, response);
-        });
-        mainProvider->sendPrompt(sentencePrompt, model);
+void NetworkManager::handleQueueItemMarked(int id, const QString &itemType, const QString &formattedText) {
+    qDebug() << "handleQueueItemMarked id=" << id << "type=" << itemType << "text=" << formattedText;
 
-        for (const QString &word : boldWords) {
-            QString wordPromptFile = SettingsManager::instance()->getValue("word_prompt_file", getDefaultPromptFilePath("word")).toString();
-            QString wordPrompt = readPromptFromFile(wordPromptFile, word, formattedText);
-
-            if (wordPrompt.isEmpty()) {
-                // Fallback to hardcoded prompt if file reading fails
-                wordPrompt = QString("Explain the meaning, usage, and example sentence for the word: '%1' which came from the following sentence: '%2'").arg(word, formattedText);
-            }
-
-            qDebug() << "🔍 Word prompt:" << wordPrompt;
-
-            OllamaProvider *wordProvider = new OllamaProvider(this);
-            connect(wordProvider, &OllamaProvider::responseReceived, [this, formattedText, word](const QString &response) {
-                qDebug() << "📘 Word response for" << word << ":" << response;
-                m_dbManager->createWordProfile(word, formattedText, response);
-            });
-            wordProvider->sendPrompt(wordPrompt, model);
-        }
-    } else if (provider == "OpenAI") {
-        qDebug() << "🎯 OpenAI prompt:" << formattedText;
+    if (itemType == "sentence") {
+        processSentence(id, formattedText);
+    } else if (itemType == "word") {
+        processWord(id, formattedText);
+    } else {
+        qWarning() << "Unknown itemType in handleQueueItemMarked:" << itemType;
     }
 }
 
+
+
+
+void NetworkManager::processSentence(int id, const QString &formattedText) {
+    QString sentencePromptFile = SettingsManager::instance()->getValue("sentence_prompt_file", getDefaultPromptFilePath("sentence")).toString();
+    QString prompt = readPromptFromFile(sentencePromptFile, "", formattedText);
+    if (prompt.isEmpty()) {
+        prompt = QString("Analyze this sentence and produce a JSON object with fields: explanation (string), important_words (array of strings). Sentence: \"%1\"").arg(formattedText);
+    }
+
+    // send prompt
+    OllamaProvider *provider = new OllamaProvider(this);
+    connect(provider, &OllamaProvider::responseReceived, this, [this, provider, id](const QString &response) {
+        provider->deleteLater();
+        qDebug() << "Sentence AI response:" << response;
+        // store raw ai response into sentences.ai_response and mark processed=2
+        m_dbManager->updateSentenceWithAIAnalysis(id, response);
+
+        // Try to parse JSON to extract important_words (if your prompt returns structured data)
+        QJsonParseError err;
+        QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
+        if (err.error == QJsonParseError::NoError && doc.isObject()) {
+            QJsonObject obj = doc.object();
+            QJsonArray words = obj.value("important_words").toArray();
+            for (const QJsonValue &v : words) {
+                QString w = v.toString().trimmed();
+                if (!w.isEmpty()) {
+                    // insert a word profile and process it
+                    int newWordId = m_dbManager->insertWordProfile(w, /*context=*/ m_dbManager->getSentencesProfile(id).value("text").toString());
+                    if (newWordId > 0) {
+                        // mark it pending was already done by insert (processed=1), so call processWord
+                        processWord(newWordId, m_dbManager->getWordProfile(newWordId).value("context").toString());
+                    }
+                }
+            }
+        } else {
+            // fallback: fall back to regex: extract **bold** text or fallback to your extractBoldWords call
+            QString sentenceText = m_dbManager->getSentencesProfile(id).value("text").toString();
+            QStringList boldWords = extractBoldWords(sentenceText);
+            for (const QString &w : boldWords) {
+                int newWordId = m_dbManager->insertWordProfile(w, sentenceText);
+                if (newWordId > 0) processWord(newWordId, sentenceText);
+            }
+        }
+    });
+    provider->sendPrompt(prompt, /*model*/ SettingsManager::instance()->getValue("model").toString());
+}
+
+
+void NetworkManager::processWord(int id, const QString &context) {
+    QString word = m_dbManager->getWordProfile(id).value("word").toString();
+
+    QString wordPromptFile = SettingsManager::instance()->getValue("word_prompt_file", getDefaultPromptFilePath("word")).toString();
+    QString prompt = readPromptFromFile(wordPromptFile, word, context);
+    if (prompt.isEmpty()) {
+        prompt = QString(R"(
+Return ONLY valid JSON object (no commentary) with keys:
+{
+  "type": "noun|verb|adjective|adverb|phrase",
+  "definition": "short definition",
+  "synonyms": ["s1","s2"],
+  "antonyms": ["a1","a2"],
+  "example_sentences": ["ex1","ex2"]
+}
+Word: "%1"
+Context: "%2"
+)").arg(word, context);
+    }
+
+    OllamaProvider *provider = new OllamaProvider(this);
+    connect(provider, &OllamaProvider::responseReceived, this, [this, provider, id, word](const QString &response) {
+        provider->deleteLater();
+        qDebug() << "Word AI response for" << word << ":" << response;
+
+        QJsonParseError err;
+        QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
+        if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+            qWarning() << "Invalid JSON for word" << word << ":" << err.errorString();
+            m_dbManager->updateWordProfileWithAIFallback(id, response);
+            return;
+        }
+
+        QJsonObject obj = doc.object();
+        QString type = obj.value("type").toString();
+        QString definition = obj.value("definition").toString();
+        QString synonyms = QJsonDocument(obj.value("synonyms").toArray()).toJson(QJsonDocument::Compact);
+        QString antonyms = QJsonDocument(obj.value("antonyms").toArray()).toJson(QJsonDocument::Compact);
+        QString examples = QJsonDocument(obj.value("example_sentences").toArray()).toJson(QJsonDocument::Compact);
+
+        m_dbManager->updateWordProfileStructured(id, type, definition, examples, synonyms, antonyms);
+    });
+    provider->sendPrompt(prompt, SettingsManager::instance()->getValue("model").toString());
+}
+
+
+
+
+
+
+// void NetworkManager::handleQueueItemMarked(int id, const QString &itemType, const QString &formattedText) {
+//     QString provider = SettingsManager::instance()->getValue("provider", "Ollama").toString();
+//     QString model = SettingsManager::instance()->getValue("model", "llama3.1-16k:latest").toString();
+//     qDebug() << "🚀 Processing sentence ID:" << id << " type: " << itemType  << " text:" << formattedText << "with provider:" << provider;
+//     QString sentencePromptFile = SettingsManager::instance()->getValue("sentence_prompt_file", getDefaultPromptFilePath("sentence")).toString();
+//     QString sentencePrompt = readPromptFromFile(sentencePromptFile, "", formattedText);
+
+//     if (sentencePrompt.isEmpty()) {
+//         sentencePrompt = QString("Analyze this sentence and explain the vocabulary: '%1'").arg(formattedText);
+//     }
+
+//     // ignore in case of being one word?
+//     // this seems to not care about what provider user is using?
+//     OllamaProvider *mainProvider = new OllamaProvider(this);
+//     connect(mainProvider, &OllamaProvider::responseReceived, [this, id](const QString &response) {
+//         qDebug() << "💬 Sentence analysis response:" << response;
+//         m_dbManager->updateSentenceWithAIAnalysis(id, response);
+//     });
+//     mainProvider->sendPrompt(sentencePrompt, model);
+
+
+//     QStringList boldWords = extractBoldWords(formattedText);
+//     for (const QString &word : boldWords) {
+//         QString wordPromptFile = SettingsManager::instance()->getValue("word_prompt_file", getDefaultPromptFilePath("word")).toString();
+//         QString wordPrompt = readPromptFromFile(wordPromptFile, word, formattedText);
+//         if (wordPrompt.isEmpty()) {
+//             wordPrompt = QString("Explain the meaning, usage, and example sentence for the word: '%1' which came from the following sentence: '%2'").arg(word, formattedText);
+//         }
+//         qDebug() << "🔍 Word prompt:" << wordPrompt;
+
+//         OllamaProvider *wordProvider = new OllamaProvider(this);
+//         connect(wordProvider, &OllamaProvider::responseReceived, [this, formattedText, word](const QString &response) {
+//             qDebug() << "📘 Word JSON response for" << word << ":" << response;
+
+//             QJsonParseError err;
+//             QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
+
+//             if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+//                 qWarning() << "❌ Invalid JSON for word:" << word << "error:" << err.errorString();
+//                 return;
+//             }
+
+//             QJsonObject obj = doc.object();
+
+//             QString type      = obj.value("type").toString();
+//             QString definition = obj.value("definition").toString();
+//             QString synonyms   = QJsonDocument(obj.value("synonyms").toArray()).toJson(QJsonDocument::Compact);
+//             QString antonyms   = QJsonDocument(obj.value("antonyms").toArray()).toJson(QJsonDocument::Compact);
+//             QString examples   = QJsonDocument(obj.value("example_sentences").toArray()).toJson(QJsonDocument::Compact);
+
+//             m_dbManager->insertWordProfile(
+//                 word,
+//                 formattedText,
+//                 type,
+//                 definition,
+//                 examples,
+//                 synonyms,
+//                 antonyms
+//             );
+//         });
+
+//         wordProvider->sendPrompt(wordPrompt, model);
+//     }
+// }
+
+
+// regenerate button need to be worked on later!
 void NetworkManager::regenerateContent(int id, const QString &table) {
     QString provider = SettingsManager::instance()->getValue("provider", "Ollama").toString();
     QString model = SettingsManager::instance()->getValue("model", "llama3.1-16k:latest").toString();

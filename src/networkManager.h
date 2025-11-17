@@ -10,14 +10,14 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
-class DatabaseManager; // Forward declaration
+class DatabaseManager;
 
 class NetworkManager : public QObject {
     Q_OBJECT
 
 public:
     explicit NetworkManager(DatabaseManager *dbManager, QObject *parent = nullptr);
-    void handleSentenceMarked(int id, const QString &formattedText);
+    void handleQueueItemMarked(int id, const QString &itemType, const QString &formattedText);
     Q_INVOKABLE void regenerateContent(int id, const QString &table);
 
     void startServer();
@@ -29,6 +29,9 @@ signals:
     void serverStarted();
     void serverStopped();
     void serverError(const QString &error);
+    void queueItemMarkedForProcessing(int id, const QString &type, const QString &formattedText);
+    void queueChanged();
+
 
 
 private slots:
@@ -39,10 +42,18 @@ private slots:
 
 private:
     QNetworkAccessManager *m_nam;
-    DatabaseManager *m_dbManager; // ✅ Pointer to existing DB manager
+    DatabaseManager *m_dbManager;
     QStringList extractBoldWords(const QString &text);
     QString readPromptFromFile(const QString &filePath, const QString &word, const QString &context);
-    QString getDefaultPromptFilePath(const QString &type); // Add this line
+    QString getDefaultPromptFilePath(const QString &type);
+
+    void markQueueItemToProcess(int id, const QString &formattedText, const QString &itemType);
+    void processSentence(int id, const QString &formattedText);
+    void processWord(int id, const QString &context);
+    void processSentenceFlow(int id, const QString &formattedText);
+    void processWordFromSentence(const QString &word, const QString &context);
+    void processSingleWordFlow(int id, const QString &word, const QString &context);
+
 
     QTcpServer *m_server;
     QList<QTcpSocket*> m_clients;

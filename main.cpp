@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
         QSharedMemory sharedMem("RadvinApp_Singleton_Mutex");
         if (!sharedMem.create(1)) {
             qWarning() << "⚠️ Another instance of RADVIN is already running!";
-            return 0; // Exit this instance
+            return 0;
         }
 
     #endif
@@ -57,9 +57,13 @@ int main(int argc, char *argv[])
     ClipboardListener clipboardListener;
     DatabaseManager dbManager("RADVIN.db");
     NetworkManager networkManager(&dbManager);
-    QObject::connect(&dbManager, &DatabaseManager::sentenceMarkedForProcessing,
-                     &networkManager, &NetworkManager::handleSentenceMarked);
-    app.setQuitOnLastWindowClosed(false);
+    QObject::connect(
+        &dbManager,
+        &DatabaseManager::queueItemMarkedForProcessing,
+        &networkManager,
+        &NetworkManager::handleQueueItemMarked
+        );
+ app.setQuitOnLastWindowClosed(false);
 
 
 
@@ -93,32 +97,32 @@ int main(int argc, char *argv[])
 
 
     QObject::connect(SettingsManager::instance(), &SettingsManager::settingChanged,
-                     [&](const QString &key) {
-                         if (key == "clipboard_enabled") {
-                             bool enabled = SettingsManager::instance()->getValue("clipboard_enabled", false).toBool();
-                             clipboardListener.setEnabled(enabled);
-                             qDebug() << "📎 Setting changed: clipboard_enabled =" << enabled;
-                         }
-                    });
+        [&](const QString &key) {
+            if (key == "clipboard_enabled") {
+             bool enabled = SettingsManager::instance()->getValue("clipboard_enabled", false).toBool();
+             clipboardListener.setEnabled(enabled);
+             qDebug() << "📎 Setting changed: clipboard_enabled =" << enabled;
+        }
+    });
 
     QObject::connect(&clipboardListener, &ClipboardListener::textCopied,
-                     [&](const QString &text) {
-                         bool isClipboardEnabled = SettingsManager::instance()
-                                                       ->getValue("clipboard_enabled", false)
-                                                       .toBool();
+     [&](const QString &text) {
+         bool isClipboardEnabled = SettingsManager::instance()
+                                       ->getValue("clipboard_enabled", false)
+                                       .toBool();
 
-                         if (!isClipboardEnabled) {
-                             qDebug() << "🔒 Clipboard monitoring is OFF — ignoring copied text";
-                             return; // ✅ Early exit if disabled
-                         }
+         if (!isClipboardEnabled) {
+             qDebug() << "🔒 Clipboard monitoring is OFF — ignoring copied text";
+             return; // ✅ Early exit if disabled
+         }
 
-                         qDebug() << "📎 Clipboard monitoring is ON — saving copied text";
-                         QVariantMap metadata;
-                         metadata["source"] = "clipboard";
-                         metadata["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
-                         dbManager.addEntry(text, metadata);
-                         emit clipboardListener.clipboardSaved();
-                     });
+         qDebug() << "📎 Clipboard monitoring is ON — saving copied text";
+         QVariantMap metadata;
+         metadata["source"] = "clipboard";
+         metadata["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+         dbManager.addEntry(text, metadata);
+         emit clipboardListener.clipboardSaved();
+    });
 
     if (SettingsManager::instance()->getValue("clipboard_enabled", false).toBool()) {
         qDebug() << "Toggle ON — starting clipboard listener";
@@ -136,11 +140,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("clipboardListener", &clipboardListener);
     engine.rootContext()->setContextProperty("dbManager", &dbManager);
     engine.rootContext()->setContextProperty("networkManager", &networkManager);
-    //engine.rootContext()->setContextProperty("authManager", &authManager);
     engine.rootContext()->setContextProperty("settings", SettingsManager::instance());
 
-
-    // ✅ Load platform-specific QML by PATH
     qDebug() << "🎨 Loading QML file:" << platformQMLPath;
     engine.load((platformQMLPath)); // ✅ Use load() with full path
 

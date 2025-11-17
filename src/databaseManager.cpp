@@ -31,7 +31,7 @@ bool DatabaseManager::createTables() {
         text TEXT NOT NULL,
         metadata TEXT, -- JSON string
         processed INTEGER DEFAULT 0,
-        ai_response TEXT, -- Store AI analysis here
+        ai_response TEXT, -- Store AI analysis here explanation
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     )");
@@ -79,9 +79,15 @@ bool DatabaseManager::createWordProfilesTable() {
         CREATE TABLE IF NOT EXISTS word_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word TEXT COLLATE NOCASE,
-            type TEXT DEFAULT "verb",
+            type TEXT, -- DEFAULT "verb"
             ai_response TEXT,
             context TEXT,
+            definition TEXT,
+            example_sentences TEXT,
+            synonyms TEXT,
+            antonyms TEXT,
+            note TEXT, -- user notes
+            processed INTEGER DEFAULT 0,
             encounter_count INTEGER NOT NULL DEFAULT 1,
             last_encounter_timestamp DATETIME NOT NULL DEFAULT (datetime('now')),
             first_encounter_timestamp DATETIME NOT NULL DEFAULT (datetime('now')),
@@ -119,32 +125,34 @@ bool DatabaseManager::createWordProfilesTable() {
 }
 
 
+
 bool DatabaseManager::addEntry(const QString &text, const QVariantMap &metadata) {
-    if (text.isEmpty()) {
+    if (text.trimmed().isEmpty())
         return false;
-    }
+
+    const bool isSingleWord = !text.trimmed().contains(' ');
 
     QSqlQuery query(m_db);
-    query.prepare("INSERT INTO sentences (text, metadata) VALUES (?, ?)");
-    query.addBindValue(text);
-    QJsonDocument doc = QJsonDocument::fromVariant(metadata);
-    QString metadataJson = doc.toJson(QJsonDocument::Compact);
-    query.addBindValue(metadataJson);
+
+    if (isSingleWord) {
+        query.prepare("INSERT INTO word_profiles (word) VALUES (?)");
+        query.addBindValue(text);
+    } else {
+        query.prepare("INSERT INTO sentences (text, metadata) VALUES (?, ?)");
+        query.addBindValue(text);
+
+        QJsonDocument doc = QJsonDocument::fromVariant(metadata);
+        QString metadataJson = doc.toJson(QJsonDocument::Compact);
+        query.addBindValue(metadataJson);
+    }
 
     bool success = query.exec();
-    if (success) {
-        qDebug() << "📥 Saved to database " << "Text:" << text;
-    } else {
-        qWarning() << "❌ Failed to save to database.";
-        qWarning() << "   Error:" << query.lastError().text();
-        qWarning() << "   Query:" << query.lastQuery();
-    }
     emit queueChanged();
     return success;
 }
 
 
-
+// mark for delete
 bool DatabaseManager::createWordProfile(const QString &word, const QString &context, const QString &ai_response) {
     if (word.isEmpty()) {
         return false;
@@ -168,31 +176,96 @@ bool DatabaseManager::createWordProfile(const QString &word, const QString &cont
 }
 
 
-void DatabaseManager::discardSentence(int id) {
+int DatabaseManager::insertWordProfile(const QString &word, const QString &context) {
+    QSqlQuery q(m_db);
+    q.prepare(R"(
+        INSERT INTO word_profiles (word, context, processed, created_at, updated_at)
+        VALUES (?, ?, 1, datetime('now'), datetime('now'))
+    )");
+    q.addBindValue(word);
+    q.addBindValue(context);
+    if (!q.exec()) {
+        qWarning() << "insertWordProfile failed:" << q.lastError().text();
+        return -1;
+    }
+    int id = q.lastInsertId().toInt();
+    emit queueChanged();
+    return id;
+}
+
+
+
+void DatabaseManager::updateWordProfileStructured(int id,
+                                                  const QString &type, const QString &definition, const QString &examples,
+                                                  const QString &synonyms, const QString &antonyms)
+{
+    QSqlQuery q(m_db);
+    q.prepare(R"(
+        UPDATE word_profiles SET
+            type = ?, definition = ?, example_sentences = ?, synonyms = ?, antonyms = ?,
+            processed = 2, updated_at = datetime('now')
+        WHERE id = ?
+    )");
+    q.addBindValue(type);
+    q.addBindValue(definition);
+    q.addBindValue(examples);
+    q.addBindValue(synonyms);
+    q.addBindValue(antonyms);
+    q.addBindValue(id);
+    if (!q.exec()) qWarning() << "updateWordProfileStructured failed:" << q.lastError().text();
+    else qDebug() << "Word profile updated structured id:" << id;
+    emit queueChanged();
+}
+
+
+
+
+
+void DatabaseManager::discardQueueItem(int id, const QString &type) {
     QSqlQuery query(m_db);
-    query.prepare("DELETE FROM sentences WHERE id = ?");
+    if (type == "sentence") {
+        query.prepare("DELETE FROM sentences WHERE id = ?");
+    } else if (type == "word") {
+        query.prepare("DELETE FROM word_profiles WHERE id = ?");
+    } else {
+        qWarning() << "Unknown type for discard:" << type;
+        return;
+    }
     query.addBindValue(id);
     query.exec();
 }
 
-void DatabaseManager::markToProcessSentence(int id, const QString &formattedText) {
+
+void DatabaseManager::markQueueItemToProcess(int id, const QString &formattedText, const QString &itemType) {
     QSqlQuery query(m_db);
-    // this is for after Queue. pending... waiting for AI to get it and process
-    query.prepare("UPDATE sentences SET processed = 1, text = ? WHERE id = ?");
+
+    if (itemType == "sentence") {
+        query.prepare("UPDATE sentences SET processed = 1, text = ? WHERE id = ?");
+    } else if (itemType == "word") {
+        query.prepare("UPDATE word_profiles SET processed = 1, ai_response = ? WHERE id = ?");
+    } else {
+        qWarning() << "❌ Unknown item type for markQueueItemToProcess:" << itemType;
+        return;
+    }
+
     query.addBindValue(formattedText);
     query.addBindValue(id);
+
     if (!query.exec()) {
-        qWarning() << "❌ Failed to mark sentence as pending:" << query.lastError().text();
+        qWarning() << "❌ Failed to mark item as pending:" << query.lastError().text();
     } else {
-        qDebug() << "✅ Marked sentence ID" << id << "as pending with formatted text";
+        qDebug() << "✅ Marked" << itemType << "ID" << id << "as pending";
     }
-    emit sentenceMarkedForProcessing(id, formattedText);
+
+    emit queueItemMarkedForProcessing(id, itemType, formattedText);
 }
+
 
 
 
 void DatabaseManager::updateSentenceWithAIAnalysis(int id, const QString &response) {
     QSqlQuery query(m_db);
+    // later change it to explanation
     query.prepare("UPDATE sentences SET processed = 2, ai_response = ? WHERE id = ?");
     query.addBindValue(response);
     query.addBindValue(id);
@@ -203,24 +276,44 @@ void DatabaseManager::updateSentenceWithAIAnalysis(int id, const QString &respon
     }
 }
 
+void DatabaseManager::updateWordProfileWithAIFallback(int id, const QString &rawResponse) {
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE word_profiles SET ai_response = ?, processed = 2, updated_at = datetime('now') WHERE id = ?");
+    q.addBindValue(rawResponse);
+    q.addBindValue(id);
+    if (!q.exec()) qWarning() << "updateWordProfileWithAIFallback failed:" << q.lastError().text();
+    else qDebug() << "Word profile updated (fallback) id:" << id;
+    emit queueChanged();
+}
+
 
 
 
 QVariantList DatabaseManager::getQueueEntries(int limit){
     QVariantList result;
     QSqlQuery query(m_db);
-    query.prepare("SELECT id, text FROM sentences WHERE processed = 0 ORDER BY id ASC LIMIT ?");
+    query.prepare(R"(
+        SELECT id, word AS text, 'word' AS type FROM word_profiles WHERE processed = 0
+        UNION ALL
+        SELECT id, text, 'sentence' AS type FROM sentences WHERE processed = 0
+        ORDER BY id ASC
+        LIMIT ?
+    )");
     query.addBindValue(limit);
+
     if (query.exec()) {
         while (query.next()) {
             QVariantMap item;
             item["id"] = query.value(0).toInt();
             item["text"] = query.value(1).toString();
+            item["type"] = query.value(2).toString();
             result.append(item);
         }
     }
     return result;
 }
+
+
 
 QVariantList DatabaseManager::getExplorerEntries(int limit){
     QVariantList result;
@@ -242,12 +335,20 @@ QVariantList DatabaseManager::getExplorerEntries(int limit){
 
 int DatabaseManager::getQueueCount(){
     QSqlQuery query(m_db);
-    query.prepare("SELECT COUNT(*) FROM sentences WHERE processed = 0 ");
+    query.prepare(R"(
+        SELECT COUNT(*) FROM (
+            SELECT id FROM sentences WHERE processed = 0
+            UNION ALL
+            SELECT id FROM word_profiles WHERE processed = 0
+        )
+    )");
     if (query.exec() && query.next()) {
         return query.value(0).toInt();
     }
     return 0;
 }
+
+
 
 
 
@@ -283,7 +384,7 @@ QVariantList DatabaseManager::getWords() {
 
     while (query.next()) {
         QVariantMap entry;
-        entry["idNum"] = query.value("id").toInt();
+        entry["id"] = query.value("id").toInt();
         entry["vocab"] = query.value("word").toString();
         entry["type"] = query.value("type").toString(); // e.g. noun/verb/adjective
         words.append(entry);
@@ -357,169 +458,4 @@ bool DatabaseManager::updateWordProfile(int id, const QString &profileData) {
     return success;
 }
 
-
-// // --- Example: Function to get words for review (due or random) ---
-// QList<QVariantMap> DatabaseManager::getWordsForReview(int limit, bool onlyDue) {
-//     QSqlQuery query(m_db);
-//     QString sql;
-
-//     if (onlyDue) {
-//         // Get words where next_review_timestamp is in the past or null (new words)
-//         sql = R"(
-//             SELECT * FROM word_profiles
-//             WHERE next_review_timestamp IS NULL OR next_review_timestamp <= datetime('now')
-//             ORDER BY next_review_timestamp ASC NULLS FIRST -- New words (NULL) first, then overdue
-//             LIMIT ?
-//         )";
-//     } else {
-//         // Get a random sample of words (e.g., least encountered, or just random)
-//         // Example: Least encountered first
-//         sql = R"(
-//             SELECT * FROM word_profiles
-//             ORDER BY encounter_count ASC, RANDOM() -- Mix it up a bit
-//             LIMIT ?
-//         )";
-//         // Or purely random:
-//         // sql = "SELECT * FROM word_profiles ORDER BY RANDOM() LIMIT ?";
-//     }
-
-//     query.prepare(sql);
-//     query.addBindValue(limit);
-
-//     QList<QVariantMap> results;
-//     if (query.exec()) {
-//         while (query.next()) {
-//             QVariantMap row;
-//             for (int i = 0; i < query.record().count(); ++i) {
-//                 row.insert(query.record().fieldName(i), query.value(i));
-//             }
-//             results.append(row);
-//         }
-//     } else {
-//         qWarning() << "Failed to query words for review:" << query.lastError();
-//     }
-//     return results;
-// }
-
-
-
-
-// QList<QPair<int, QString>> DatabaseManager::getPendingSentences() {
-//     QList<QPair<int, QString>> result;
-//     QSqlQuery query(m_db);
-//     if (query.exec("SELECT id, text FROM sentences WHERE sent = 1")) {
-//         while (query.next()) {
-//             int id = query.value(0).toInt();
-//             QString text = query.value(1).toString();
-//             result.append(qMakePair(id, text));
-//         }
-//     }
-//     return result;
-// }
-
-// void DatabaseManager::markSentenceAsSent(int id) {
-//     QString api_key = SettingsManager::instance()->getValue("auth_token", "").toString();
-//     QSqlQuery query(m_db);
-//     query.prepare("UPDATE sentences SET sent = 2 WHERE id = ? AND api_key = ?");
-//     query.addBindValue(id);
-//     query.addBindValue(api_key);
-//     query.exec();
-// }
-
-// bool DatabaseManager::saveWordProfile(const QString &word, const QVariantMap &profileData) {
-//     QSqlQuery query(m_db);
-//     query.prepare("INSERT OR REPLACE INTO word_profiles (word, profile_data) VALUES (?, ?)");
-//     query.addBindValue(word);
-
-//     QJsonDocument doc = QJsonDocument::fromVariant(profileData);
-//     QString profileJson = doc.toJson(QJsonDocument::Compact);
-//     query.addBindValue(profileJson);
-
-//     bool success = query.exec();
-//     if (!success) {
-//         qWarning() << "❌ Failed to save word profile for" << word << ":" << query.lastError().text();
-//     } else {
-//         qDebug() << "💾 Saved word profile for:" << word;
-//     }
-//     return success;
-// }
-
-// // --- NEW --- Get a word profile
-
-
-
-// QStringList DatabaseManager::getAllWords() {
-//     QStringList words;
-//     QSqlQuery query(m_db);
-//     if (query.exec("SELECT word FROM word_profiles ORDER BY word")) {
-//         while (query.next()) {
-//             words << query.value("word").toString();
-//         }
-//     }
-//     if (query.lastError().isValid()) {
-//         qWarning() << "❌ Database error fetching word list:" << query.lastError().text();
-//     }
-//     return words;
-// }
-
-
-// bool DatabaseManager::updateWordProfile(const QString &word, const QVariantMap &updatedProfileData) {
-//     return saveWordProfile(word, updatedProfileData);
-// }
-
-// Q_INVOKABLE QVariantList DatabaseManager::getWordProfiles(int limit) {
-//     QVariantList result;
-//     QSqlQuery query(m_db); // Use the member database connection
-//     query.prepare("SELECT word, profile_data FROM word_profiles LIMIT ?");
-//     query.addBindValue(limit);
-
-//     if (query.exec()) {
-//         while (query.next()) {
-//             QVariantMap wordData;
-//             QString word = query.value(0).toString();
-//             QString profileDataJsonString = query.value(1).toString();
-
-//             wordData["word"] = word;
-
-//             // Parse the JSON profile_data
-//             QJsonParseError parseError;
-//             QJsonDocument doc = QJsonDocument::fromJson(profileDataJsonString.toUtf8(), &parseError);
-//             if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
-//                 // Convert the JSON object directly into a QVariantMap
-//                 QVariantMap profileMap = doc.object().toVariantMap();
-//                 // Merge the profile data into the main wordData map
-//                 // This allows QML to access profile fields like wordData.definition
-//                 for (auto it = profileMap.constBegin(); it != profileMap.constEnd(); ++it) {
-//                     wordData.insert(it.key(), it.value());
-//                 }
-//             } else {
-//                 // If JSON is invalid or not an object, log a warning and/or add a placeholder
-//                 qWarning() << "Failed to parse profile_data JSON for word:" << word << parseError.errorString();
-//                 // Optionally add an error flag or message
-//                 // wordData["profile_parse_error"] = parseError.errorString();
-//             }
-
-//             result.append(wordData);
-//         }
-//     } else {
-//         qWarning() << "Failed to execute getWordProfiles query:" << query.lastError().text();
-//     }
-
-//     return result;
-// }
-
-
-// // --- New Helper: Check if table is empty ---
-// bool DatabaseManager::isWordProfilesTableEmpty() {
-//     QSqlQuery query(m_db);
-//     if (!query.exec("SELECT COUNT(*) FROM word_profiles")) {
-//         qWarning() << "Failed to count rows in word_profiles:" << query.lastError().text();
-//         return false; // Assume not empty or error occurred
-//     }
-//     if (query.next()) {
-//         int count = query.value(0).toInt();
-//         return count == 0;
-//     }
-//     return false; // Shouldn't happen, but assume not empty
-// }
 

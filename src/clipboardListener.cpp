@@ -64,6 +64,7 @@ QString ClipboardListener::filterText(const QString &text) {
     // ✅ Collapse multiple spaces and tabs into single space
     QString clean = trimmed;
     clean.replace(QRegularExpression("\\s+"), " ");
+    // in case it has break lines remove them and turn them into single line
 
     // ✅ Skip if too long (>200 words)
     QStringList words = clean.split(' ', Qt::SkipEmptyParts);

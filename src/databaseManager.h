@@ -18,11 +18,11 @@ public:
 
     Q_INVOKABLE QVariantList getQueueEntries(int limit = 100);
     Q_INVOKABLE int getQueueCount();
-    Q_INVOKABLE void discardSentence(int id);
+    Q_INVOKABLE void discardQueueItem(int id, const QString &type);
 
 
     Q_INVOKABLE QVariantList getExplorerEntries(int limit = 100);
-    Q_INVOKABLE void markToProcessSentence(int id, const QString &formattedText);
+    Q_INVOKABLE void markQueueItemToProcess(int id, const QString &formattedText, const QString &itemType);
 
     Q_INVOKABLE QVariantMap getWordProfile(const int id);
 
@@ -33,6 +33,7 @@ public:
 
 
     void updateSentenceWithAIAnalysis(int id, const QString &response);
+    void updateWordProfileWithAIFallback(int id, const QString &rawResponse);
 
     Q_INVOKABLE QVariantList getWords();
 
@@ -42,29 +43,24 @@ public:
 
      Q_INVOKABLE bool updateWordProfile(int id, const QString &profileData);
 
+     int insertWordProfile(const QString &word, const QString &context);
+     void updateWordProfileStructured(int id,
+                                 const QString &type, const QString &definition, const QString &examples,
+                                 const QString &synonyms, const QString &antonyms);
 
-
-    // Q_INVOKABLE int getSentenceCount() const;
-    // QList<QPair<int, QString>> getPendingSentences();
-    // Q_INVOKABLE void markSentenceAsSent(int id);
-
-    // Q_INVOKABLE bool saveWordProfile(const QString &word, const QVariantMap &profileData);
-    // Q_INVOKABLE QVariantList getWordProfiles(int limit = 10);
-    // Q_INVOKABLE QStringList getAllWords();
-    // Q_INVOKABLE bool deleteWordProfile(const QString &word);
-    // Q_INVOKABLE bool updateWordProfile(const QString &word, const QVariantMap &updatedProfileData);
-    // bool recordWordEncounter(const QString &word, const QVariantMap &contextMetadata);
-    // QList<QVariantMap> getWordsForReview(int limit, bool onlyDue);
 
 signals:
-    void sentenceMarkedForProcessing(int sentenceId, const QString &formattedText);
+    void queueItemMarkedForProcessing(int id, const QString &formattedText, const QString &itemType);
     void queueChanged();
 
 private:
     QSqlDatabase m_db;
     bool createTables();
     bool isWordProfilesTableEmpty();
+    // mark for delete
+
     bool createWordProfilesTable();
+
     bool createLinkingTables();
 
 

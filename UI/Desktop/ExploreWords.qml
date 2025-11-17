@@ -7,17 +7,14 @@ Item {
     id: root
     anchors.fill: parent
 
-    // dynamic list that will hold words from the database
     ListModel { id: wordModel }
 
-    // number of columns and layout metrics
     property int columns: 5
     property int cellSpacing: 8
     property int cellWidth: Math.max(100, Math.floor((root.width - (columns + 1) * cellSpacing) / columns))
     property int cellHeight: 80
 
     Component.onCompleted: {
-        // safety check: dbManager must be exposed to QML context
         if (typeof dbManager === "undefined" || dbManager.getWords === undefined) {
             console.error("❌ dbManager is not available in QML context.")
             return
@@ -31,16 +28,14 @@ Item {
             return
         }
 
-        // populate model dynamically
         for (let i = 0; i < words.length; ++i) {
             const w = words[i]
             wordModel.append({
                 vocab: w.vocab,
                 type: w.type,
-                idNum: w.idNum
+                id: w.id
             })
         }
-
         console.log(`✅ Loaded ${words.length} words from database.`)
     }
 
@@ -53,13 +48,14 @@ Item {
             id: grid
             anchors.fill: parent
             model: wordModel
-            cellWidth: root.cellWidth
-            cellHeight: root.cellHeight
+            cellWidth: root.cellWidth + root.cellSpacing
+            cellHeight: root.cellHeight + root.cellSpacing
             flow: GridView.LeftToRight
             flickableDirection: Flickable.VerticalFlick
             boundsBehavior: Flickable.StopAtBounds
             highlightFollowsCurrentItem: false
             interactive: true
+
 
             delegate: Rectangle {
                 width: grid.cellWidth
@@ -67,6 +63,7 @@ Item {
                 radius: 6
                 border.width: 1
                 border.color: "#cfcfcf"
+
 
                 color: {
                     if (type === "verb") return "#dff7df"      // light green
@@ -76,9 +73,9 @@ Item {
                 }
 
                 Column {
-                    anchors.centerIn: parent  // Center the entire column in the rectangle
+                    anchors.centerIn: parent
                     spacing: 4
-                    width: parent.width - 16  // Account for margins
+                    width: parent.width - 16
 
                     Text {
                         id: wordText
@@ -97,9 +94,9 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         if (typeof explorer !== "undefined" && explorer.openWordProfile) {
-                            explorer.openWordProfile(idNum)
+                            explorer.openWordProfile(id)
                         } else {
-                            console.log("clicked id:", idNum)
+                            console.log("clicked id:", id)
                         }
                     }
                     onEntered: border.color = "#999"

@@ -17,7 +17,10 @@ Item {
     }
 
     function openSentenceProfile(itemId) {
-        loader.setSource("ExplorerSentenceProfile.qml", { profileId: itemId })
+        loader.setSource("ExploreProfile.qml", {
+            profileId: itemId,
+            profileType: "sentence"
+        })
         backButton.visible = true
         reGenerateButton.visible = true
         deleteButton.visible = true
@@ -26,7 +29,10 @@ Item {
 
 
     function openWordProfile(itemId) {
-        loader.setSource("ExplorerWordProfile.qml", { profileId: itemId })
+        loader.setSource("ExploreProfile.qml", {
+            profileId: itemId,
+            profileType: "word"
+        })
         backButton.visible = true
         reGenerateButton.visible = true
         deleteButton.visible = true
@@ -35,8 +41,8 @@ Item {
 
     function setCurrentView(viewName) {
         let fileMap = {
-            "List": "ExplorerListView.qml",
-            "Table": "ExplorerTableView.qml",
+            "List": "ExploreSentences.qml",
+            "Grid": "ExploreWords.qml",
         }
 
         if (fileMap[viewName]) {
@@ -75,7 +81,7 @@ Item {
 
                 var profileType = loader.item.profileType || "sentence";
                 if (profileType === "word") {
-                    setCurrentView(settings.getValue("explorerView", "Table"))
+                    setCurrentView(settings.getValue("explorerView", "Grid"))
                 } else {
                     setCurrentView(settings.getValue("explorerView", "List"))
                 }
@@ -172,12 +178,12 @@ Item {
                         loader.item.profileId !== null &&
                         loader.item.profileId !== -1) {
 
-                    var profileType = loader.item.profileType || "sentence"; // default to sentence
+                    var profileType = loader.item.profileType || "sentence";
                     console.log("Deleting", profileType, "with ID:", loader.item.profileId);
 
                     if (profileType === "word") {
                         dbManager.deleteWord(loader.item.profileId);
-                        setCurrentView(settings.getValue("explorerView", "Table"))
+                        setCurrentView(settings.getValue("explorerView", "Grid"))
                     } else {
                         dbManager.deleteSentence(loader.item.profileId);
                         setCurrentView(settings.getValue("explorerView", "List"))
@@ -230,7 +236,7 @@ Item {
 
             model: [
                 { display: "List" },
-                { display: "Table" }
+                { display: "Grid" }
             ]
 
             onCurrentIndexChanged: {

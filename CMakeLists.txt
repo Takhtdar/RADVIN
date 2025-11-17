@@ -43,8 +43,8 @@ qt_add_qml_module(appRadvin_Qt
         QML_FILES UI/Desktop/Settings.qml
         QML_FILES
         SOURCES src/ollamaProvider.h src/ollamaProvider.cpp
-        QML_FILES UI/Desktop/ExplorerWordProfile.qml
-        QML_FILES UI/Desktop/ExplorerSentenceProfile.qml
+        QML_FILES
+        QML_FILES UI/Desktop/ExploreProfile.qml
 
 )
 
@@ -102,10 +102,10 @@ qt_add_resources(appRadvin_Qt
         UI/Desktop/Home.qml
         UI/Desktop/Queue.qml
         UI/Desktop/Explorer.qml
-        UI/Desktop/ExplorerSentenceProfile.qml
-        UI/Desktop/ExplorerWordProfile.qml
-        UI/Desktop/ExplorerListView.qml
-        UI/Desktop/ExplorerTableView.qml
+        UI/Desktop/ExploreProfile.qml
+        UI/Desktop/ExploreSentences.qml
+        UI/Desktop/DropDownItem.qml
+        UI/Desktop/ExploreWords.qml
         UI/Desktop/Practice.qml
         UI/Desktop/Settings.qml
 
