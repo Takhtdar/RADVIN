@@ -7,12 +7,100 @@ Item {
     id: root
     anchors.fill: parent
 
+    anchors.rightMargin: 8
+
     ListModel { id: wordModel }
 
-    property int columns: 5
-    property int cellSpacing: 8
-    property int cellWidth: Math.max(100, Math.floor((root.width - (columns + 1) * cellSpacing) / columns))
-    property int cellHeight: 80
+    ScrollView {
+        id: scroller
+        anchors.fill: parent
+        clip: true
+
+
+
+        GridView {
+            id: grid
+            anchors.fill: parent
+            model: wordModel
+
+            flow: GridView.LeftToRight
+            flickableDirection: Flickable.VerticalFlick
+            boundsBehavior: Flickable.StopAtBounds
+            highlightFollowsCurrentItem: false
+            interactive: true
+
+            cellWidth: width / columns
+            property int minCellWidth: 160
+            property int columns: Math.max(1, Math.floor(width / minCellWidth))
+            property int spacing: 12
+
+            delegate: Item {
+                width: grid.cellWidth
+                height: 70
+                property bool hovered: false
+
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 8
+                    anchors.rightMargin: Math.round(grid.spacing / 2)
+                    anchors.leftMargin: Math.round(grid.spacing / 2)
+                    border.width: 1
+                    border.color: hovered ? "#999" : "#cfcfcf"
+
+                    color: {
+                        switch (type) {
+                        case "verb": return "#dff7df"
+                        case "noun": return "#f7dfdf"
+                        case "adjective": return "#dfecf7"
+                        default: return "#efefef"
+                        }
+                    }
+
+                    Text {
+                        text: vocab
+                        anchors.centerIn: parent
+                        width: parent.width - 10
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        wrapMode: Text.NoWrap
+                        font.pixelSize: 16
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onEntered: hovered = true
+                        onExited: hovered = false
+                        onClicked: explorer.openProfile(id, "word")
+                    }
+                }
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
 
     Component.onCompleted: {
         if (typeof dbManager === "undefined" || dbManager.getWords === undefined) {
@@ -37,72 +125,5 @@ Item {
             })
         }
         console.log(`✅ Loaded ${words.length} words from database.`)
-    }
-
-    ScrollView {
-        id: scroller
-        anchors.fill: parent
-        clip: true
-
-        GridView {
-            id: grid
-            anchors.fill: parent
-            model: wordModel
-            cellWidth: root.cellWidth + root.cellSpacing
-            cellHeight: root.cellHeight + root.cellSpacing
-            flow: GridView.LeftToRight
-            flickableDirection: Flickable.VerticalFlick
-            boundsBehavior: Flickable.StopAtBounds
-            highlightFollowsCurrentItem: false
-            interactive: true
-
-
-            delegate: Rectangle {
-                width: grid.cellWidth
-                height: grid.cellHeight
-                radius: 6
-                border.width: 1
-                border.color: "#cfcfcf"
-
-
-                color: {
-                    if (type === "verb") return "#dff7df"      // light green
-                    else if (type === "noun") return "#f7dfdf" // light red
-                    else if (type === "adjective") return "#dfecf7" // light blue
-                    else return "#efefef"
-                }
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 4
-                    width: parent.width - 16
-
-                    Text {
-                        id: wordText
-                        text: vocab
-                        font.pixelSize: 16
-                        horizontalAlignment: Text.AlignHCenter
-                        elide: Text.ElideRight
-                        wrapMode: Text.Wrap
-                        width: parent.width
-                        color: "black"
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: {
-                        if (typeof explorer !== "undefined" && explorer.openWordProfile) {
-                            explorer.openWordProfile(id)
-                        } else {
-                            console.log("clicked id:", id)
-                        }
-                    }
-                    onEntered: border.color = "#999"
-                    onExited: border.color = "#cfcfcf"
-                }
-            }
-        }
     }
 }

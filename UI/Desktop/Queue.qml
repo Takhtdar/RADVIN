@@ -202,10 +202,13 @@ Item {
                 height: 150
                 Layout.bottomMargin: 20
 
+                // maybe disable button when there is no item in queue!
 
-                Button {
+                ButtonItem {
                     id: discardButton
                     text: "🗑️ Discard"
+                    backgroundColor: "#e63946"
+                    hoverColor: "#bd2130"
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignLeft
 
@@ -218,11 +221,15 @@ Item {
                     }
                 }
 
+
+
                 Item {Layout.fillWidth: true}
 
-                Button {
+                ButtonItem {
                     id: passButton
                     text: "🚀 Explore it"
+                    backgroundColor: "#28a745"
+                    hoverColor: "#218838"
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignRight
 

@@ -7,7 +7,7 @@ Item {
 
     ScrollView {
         anchors.fill: parent
-        anchors.margins: 10
+        anchors.margins: 5
 
         ListView {
             id: sentenceListView
@@ -33,7 +33,7 @@ Item {
                         view: viewOptions.currentIndex,
                         filter: filterOptions.currentIndex
                     }
-                    explorer.openSentenceProfile(modelData.id)
+                    explorer.openProfile(modelData.id, "sentence")
                 }
 
                 Rectangle {
