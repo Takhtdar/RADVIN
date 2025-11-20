@@ -41,7 +41,6 @@ qt_add_qml_module(appRadvin_Qt
         QML_FILES UI/Desktop/Practice.qml
         QML_FILES UI/Desktop/Explorer.qml
         QML_FILES UI/Desktop/Settings.qml
-        QML_FILES
         SOURCES src/ollamaProvider.h src/ollamaProvider.cpp
         QML_FILES UI/Desktop/ExploreProfile.qml
 
@@ -108,6 +107,8 @@ qt_add_resources(appRadvin_Qt
         UI/Desktop/ExploreWords.qml
         UI/Desktop/Practice.qml
         UI/Desktop/Settings.qml
+        UI/Desktop/CollapsibleSection.qml
+        UI/Desktop/DynamicJsonViewer.qml
 
         UI/Shared/Main.qml
 )

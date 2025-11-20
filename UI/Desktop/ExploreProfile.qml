@@ -3,10 +3,31 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 Item {
-    property var profileId
+    id: exploreProfile
+    property int profileId
     property string profileType: "sentence"
     property var previousState: null
-    property var processingStates: ({})
+    property var parentExplorer: null
+
+    function parseJson(jsonString) {
+        try {
+            // Remove markdown code block markers if present
+            var cleaned = jsonString.trim();
+            if (cleaned.startsWith("```json")) {
+                cleaned = cleaned.substring(7); // Remove "```json"
+            }
+            if (cleaned.endsWith("```")) {
+                cleaned = cleaned.substring(0, cleaned.lastIndexOf("```")); // Remove trailing "```"
+            }
+            cleaned = cleaned.trim();
+
+            return JSON.parse(cleaned);
+        } catch (e) {
+            console.log("JSON parsing error:", e);
+            console.log("Original string:", jsonString);
+            return {};
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -29,16 +50,7 @@ Item {
                 onClicked: {
                     explorerNavbar.visible = true
                     exploreProfileNavbar.visible = false
-                    // Reset the processing state for the current profile before navigating back
-                    if (loader.item && loader.item.profileId !== undefined && loader.item.profileId !== null && loader.item.profileId !== -1) {
-                        var currentProfileId = loader.item.profileId;
-                        if (explorer.processingStates[currentProfileId]) {
-                            explorer.processingStates[currentProfileId] = false;
-                            reGenerateButton.isProcessing = false; // Reset the button state
-                        }
-                    }
 
-                    var profileType = loader.item.profileType || "sentence";
                     if (profileType === "word") {
                         setCurrentView(settings.getValue("explorerView", "Grid"))
                     } else {
@@ -48,35 +60,22 @@ Item {
             }
 
             ButtonItem {
+                // to be fixed
                 id: reGenerateButton
                 backgroundColor: "#e5e7eb"
                 hoverColor: "#d2d3d6"
                 textColor: "#000"
                 Layout.preferredWidth: 160
-                text: reGenerateButton.isProcessing ? "Processing..." : "Generate ♻️️"
                 Layout.alignment: Qt.AlignVCenter
-                enabled: !reGenerateButton.isProcessing
-
-                property bool isProcessing: false
+                text: explorer.processingStates[loader.item.profileId] ? "Processing..." : "Generate ♻️️"
+                enabled: !explorer.processingStates[loader.item.profileId]
 
                 onClicked: {
-                    if (loader.item &&
-                            loader.item.profileId !== undefined &&
-                            loader.item.profileId !== null &&
-                            loader.item.profileId !== -1) {
-
-                        var profileType = loader.item.profileType || "sentence";
-                        var profileId = loader.item.profileId;
-
-                        console.log("Regenerating", profileType, "with ID:", profileId);
-
-                        // Set processing state for this specific ID
-                        explorer.processingStates[profileId] = true;
-                        reGenerateButton.isProcessing = true;
-
-                        // Call the network manager to regenerate content
-                        networkManager.regenerateContent(profileId, profileType);
-                    }
+                    explorer.processingStates[profileId] = true
+                    reGenerateButton.text = "Processing..."
+                    reGenerateButton.enabled = false
+                    console.log("Regenerating", profileType, "with ID:", profileId);
+                    networkManager.regenerateContent(profileId, profileType);
                 }
             }
 
@@ -90,29 +89,19 @@ Item {
                 onClicked: {
                     explorerNavbar.visible = true
                     exploreProfileNavbar.visible = false
-                    if (loader.item &&
-                            loader.item.profileId !== undefined &&
-                            loader.item.profileId !== null &&
-                            loader.item.profileId !== -1) {
 
-                        var profileType = loader.item.profileType || "sentence";
-                        console.log("Deleting", profileType, "with ID:", loader.item.profileId);
-
-                        if (profileType === "word") {
-                            dbManager.deleteWord(loader.item.profileId);
-                            setCurrentView(settings.getValue("explorerView", "Grid"))
-                        } else {
-                            dbManager.deleteSentence(loader.item.profileId);
-                            setCurrentView(settings.getValue("explorerView", "List"))
-                        }
+                    if (profileType === "word") {
+                        dbManager.deleteWord(loader.item.profileId);
+                        setCurrentView(settings.getValue("explorerView", "Grid"))
+                    } else {
+                        dbManager.deleteSentence(loader.item.profileId);
+                        setCurrentView(settings.getValue("explorerView", "List"))
                     }
                 }
             }
         }
 
-        Item {
-            height: 10
-        }
+        Item { height: 10 }
 
         RowLayout{
             Layout.fillWidth: true
@@ -169,39 +158,42 @@ Item {
                         id: bar
                     }
 
-                    Rectangle {
-                        width: parent.width
-                        color: "#f9fafb"
-                        radius: 8
-                        height: Math.max(titleText.height + contentText.height + 60, 80)  // Minimum height
+                    // Rectangle {
+                    //     width: parent.width
+                    //     color: "#f9fafb"
+                    //     radius: 8
+                    //     height: Math.max(titleText.height + contentText.height + 60, 80)  // Minimum height
 
-                        Text {
-                            id: titleText
-                            font.pointSize: 10
-                            width: parent.width - 40
-                            wrapMode: Text.Wrap
-                            text: "Synonym"
-                            color: "#2563eb"
-                            anchors {
-                                top: parent.top
-                                horizontalCenter: parent.horizontalCenter
-                                topMargin: 20
-                            }
-                        }
+                    //     Text {
+                    //         id: titleText
+                    //         font.pointSize: 10
+                    //         width: parent.width - 40
+                    //         wrapMode: Text.Wrap
+                    //         text: "Synonym"
+                    //         color: "#2563eb"
+                    //         anchors {
+                    //             top: parent.top
+                    //             horizontalCenter: parent.horizontalCenter
+                    //             topMargin: 20
+                    //         }
+                    //     }
 
-                        Text {
-                            id: contentText
-                            font.pointSize: 14
-                            width: parent.width - 40
-                            wrapMode: Text.Wrap
-                            text: "Impossible"
-                            anchors {
-                                top: titleText.bottom
-                                horizontalCenter: parent.horizontalCenter
-                                topMargin: 10
-                            }
-                        }
-                    }
+                    //     Text {
+                    //         id: contentText
+                    //         font.pointSize: 14
+                    //         width: parent.width - 40
+                    //         wrapMode: Text.Wrap
+                    //         text: "Impossible"
+                    //         anchors {
+                    //             top: titleText.bottom
+                    //             horizontalCenter: parent.horizontalCenter
+                    //             topMargin: 10
+                    //         }
+                    //     }
+                    // }
+
+
+                    // add user notes here. maybe prompt user to show they understood and can use the word.
                 }
             }
 
@@ -211,106 +203,62 @@ Item {
                 Layout.fillHeight: true
                 Layout.preferredWidth: 0
                 contentWidth: width  // Important: constrain content width
-                contentHeight: aiContentColumn.implicitHeight
+                contentHeight: Math.max(aiContentColumn.implicitHeight, height) // Ensure content height is at least Flickable height
                 flickableDirection: Flickable.VerticalFlick
                 boundsBehavior: Flickable.DragOverBounds
                 clip: true
 
                 ScrollBar.vertical: ScrollBar { }
 
-                Column {
+                ColumnLayout {
                     id: aiContentColumn
-                    width: parent.width - 20  // Match the Flickable width
-                    anchors.margins: 10
+                    width: parent.width - 20
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
                     spacing: 15
 
-                    DropDownItem{
-                        title: "Synonyms"
-                        model:  [
-                            { id: 101, word: "unhappy" },
-                            { id: 102, word: "miserable" },
-                            { id: 103, word: "down" }
-                        ]
+                    DynamicJsonViewer {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true  // This makes it fill the available height
+
+
+                        jsonData: {
+                            var response = dbManager.getWordProfile(profileId).ai_response;
+                            if (typeof response === "string") {
+                                return parseJson(response); // Use your existing parser function
+                            }
+                            return response;
+                        }
                     }
 
-                    DropDownItem{
-                        title: "Antonyms"
-                        model: [{id: 601, word: "different"}]
-                    }
-
-                    DropDownItem{
-                        title: "Usage Examples"
-                        columns: 1
-                        model: [{id: 401, word: "aaaaaaa"}]
-                    }
-
-                    DropDownItem{
-                        title: "Different Ways to say same thing"
-                        columns: 1
-                        model: [{id: 301, word: "different"}]
-                    }
-
-                    DropDownItem{
-                        title: "Explanation"
-                        columns: 1
-                        model: [{
-                                id: 201,
-                                word: profileType === "word"
-                                      ? dbManager.getWordProfile(profileId).ai_response
-                                      : dbManager.getSentencesProfile(profileId).ai_response
-                            }]
-                    }
-
-                    Item {
-                        width: 1
-                        height: 10  // This creates space below the rectangle
-                    }
+                    Item { Layout.preferredHeight: 50 } // Bottom padding
                 }
             }
         }
     }
 
-
     Component.onCompleted: {
-
         // move this later to Explorer.qml
         explorerNavbar.visible = false
 
         console.log("Loaded profile with id:", profileId)
-        if (profileId !== undefined && profileId !== null && profileId !== -1) {
+            let data = ""
             if (profileType === "word") {
-                var data = dbManager.getWordProfile(profileId)
-                originalSentenceText.text = data.word
+                data = dbManager.getWordProfile(profileId).context
             } else {
-                var data = dbManager.getSentencesProfile(profileId)
-                originalSentenceText.text = data.text
+                data = dbManager.getSentencesProfile(profileId).text
             }
-        }
+            originalSentenceText.text = data
 
         networkManager.contentRegenerationStarted.connect(function(id, type) {
             console.log("Started regenerating", type, "ID:", id);
-            explorer.processingStates[id] = true;
-            if (loader.item && loader.item.profileId === id) {
-                reGenerateButton.isProcessing = true;
-            }
+
         });
 
         networkManager.contentRegenerated.connect(function(id, type) {
             console.log("Finished regenerating", type, "ID:", id);
-            explorer.processingStates[id] = false;
 
-            if (loader.item && loader.item.profileId === id) {
-                if (type === "word") {
-                    explorer.openProfile(id, "word");
-                } else {
-                    explorer.openProfile(id, "sentence");
-                }
-                reGenerateButton.isProcessing = false;
-            }
-            if (loader.item && loader.item.profileId === id) {
-                reGenerateButton.isProcessing = false;
-            }
         });
-
     }
 }

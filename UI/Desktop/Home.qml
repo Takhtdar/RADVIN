@@ -215,7 +215,7 @@ Rectangle {
         Rectangle{
             id: mainScreen
             height: parent.height
-            width: parent.width - 70
+            width: parent.width - 50
             // height: parent.height - 20
             color: "white"
             anchors.bottom: parent.bottom

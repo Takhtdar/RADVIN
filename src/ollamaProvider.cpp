@@ -26,6 +26,7 @@ void OllamaProvider::sendPrompt(const QString &prompt, const QString &model)
     message["content"] = prompt;
     messages.append(message);
     jsonRequest["messages"] = messages;
+    jsonRequest["temperature"] = 0;
     jsonRequest["stream"] = false;
 
     QJsonDocument doc(jsonRequest);

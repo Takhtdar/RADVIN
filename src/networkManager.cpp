@@ -465,9 +465,10 @@ void NetworkManager::regenerateContent(int id, const QString &table) {
             }
         } else if (table == "word") {
             QString text = m_dbManager->getWordProfile(id).value("word").toString();
+            QString context = m_dbManager->getWordProfile(id).value("context").toString();
 
             QString wordPromptFile = SettingsManager::instance()->getValue("word_prompt_file", getDefaultPromptFilePath("word")).toString();
-            QString wordPrompt = readPromptFromFile(wordPromptFile, text, "");
+            QString wordPrompt = readPromptFromFile(wordPromptFile, text, context);
 
             if (wordPrompt.isEmpty()) {
                 wordPrompt = QString("Provide detailed information about the word '%1': definition, usage, examples, and memory tips.").arg(text);

@@ -32,7 +32,8 @@ Item {
     function openProfile(itemId, type) {
         loader.setSource("ExploreProfile.qml", {
             profileId: itemId,
-            profileType: type
+            profileType: type,
+            parentExplorer: explorer
         })
     }
 
@@ -43,7 +44,6 @@ Item {
         anchors.right: parent.right
         height: explorerNavbar.visible ? 50 : 0
         z: 10
-        //spacing: 8
         visible: true
 
 
