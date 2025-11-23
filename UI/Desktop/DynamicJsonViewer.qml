@@ -145,6 +145,7 @@ Item {
                                         font.pointSize: 11
                                         wrapMode: Text.Wrap
                                         Layout.fillWidth: true
+                                        textFormat: Text.MarkdownText
                                     }
                                 }
 
@@ -187,6 +188,7 @@ Item {
                                                 font.pointSize: 11
                                                 wrapMode: Text.Wrap
                                                 Layout.fillWidth: true
+                                                textFormat: Text.MarkdownText
                                             }
                                         }
                                     }
@@ -220,6 +222,7 @@ Item {
                                                 color: "#6B7280"
                                                 font.pointSize: 10
                                                 Layout.preferredWidth: implicitWidth
+                                                textFormat: Text.MarkdownText
                                             }
                                             Text {
                                                 text: root.formatValue(currentValue[modelData])
@@ -227,6 +230,7 @@ Item {
                                                 font.pointSize: 10
                                                 wrapMode: Text.Wrap
                                                 Layout.fillWidth: true
+                                                textFormat: Text.MarkdownText
                                             }
                                         }
                                     }

@@ -244,6 +244,28 @@ void NetworkManager::handleQueueItemMarked(int id, const QString &itemType, cons
 }
 
 
+// Utility: remove **bold** markdown except for the specific word
+QString stripBoldExcept(const QString &sentence, const QString &targetWord) {
+    QString result = sentence;
+
+    // 1. Remove all bold markdown markers: **text**
+    static QRegularExpression boldPattern(R"(\*\*(.*?)\*\*)");
+    result.replace(boldPattern, "\\1");
+
+    // 2. Re-apply bold formatting only to the target word (whole word match)
+    // Escape word for regex
+    QString escaped = QRegularExpression::escape(targetWord);
+
+    // Match whole words: \bword\b, but for Unicode Qt recommends using lookarounds
+    QRegularExpression wordPattern(QString("(?<!\\w)(%1)(?!\\w)").arg(escaped));
+
+    // Replace with bold version
+    result.replace(wordPattern, "**\\1**");
+
+    return result;
+}
+
+
 
 
 void NetworkManager::processSentence(int id, const QString &formattedText) {
@@ -259,33 +281,19 @@ void NetworkManager::processSentence(int id, const QString &formattedText) {
         provider->deleteLater();
         qDebug() << "Sentence AI response:" << response;
         // store raw ai response into sentences.ai_response and mark processed=2
+        // maybe here we remove the ```json and ``` at the end
         m_dbManager->updateSentenceWithAIAnalysis(id, response);
 
-        // Try to parse JSON to extract important_words (if your prompt returns structured data)
-        QJsonParseError err;
-        QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
-        if (err.error == QJsonParseError::NoError && doc.isObject()) {
-            QJsonObject obj = doc.object();
-            QJsonArray words = obj.value("important_words").toArray();
-            for (const QJsonValue &v : words) {
-                QString w = v.toString().trimmed();
-                if (!w.isEmpty()) {
-                    // insert a word profile and process it
-                    int newWordId = m_dbManager->insertWordProfile(w, /*context=*/ m_dbManager->getSentencesProfile(id).value("text").toString());
-                    if (newWordId > 0) {
-                        // mark it pending was already done by insert (processed=1), so call processWord
-                        processWord(newWordId, m_dbManager->getWordProfile(newWordId).value("context").toString());
-                    }
-                }
-            }
-        } else {
-            // fallback: fall back to regex: extract **bold** text or fallback to your extractBoldWords call
-            QString sentenceText = m_dbManager->getSentencesProfile(id).value("text").toString();
-            QStringList boldWords = extractBoldWords(sentenceText);
-            for (const QString &w : boldWords) {
-                int newWordId = m_dbManager->insertWordProfile(w, sentenceText);
-                if (newWordId > 0) processWord(newWordId, sentenceText);
-            }
+        // fallback: fall back to regex: extract **bold** text or fallback to your extractBoldWords call
+        QString sentenceText = m_dbManager->getSentencesProfile(id).value("text").toString();
+        QStringList boldWords = extractBoldWords(sentenceText);
+        for (const QString &w : boldWords) {
+            // pass clearText Except
+            QString context = stripBoldExcept(sentenceText, w);
+            qDebug() << "bold word: " << w << " context: " << context;
+
+            int newWordId = m_dbManager->insertWordProfile(w, context);
+            if (newWordId > 0) processWord(newWordId, context);
         }
     });
     provider->sendPrompt(prompt, /*model*/ SettingsManager::instance()->getValue("model").toString());
@@ -412,6 +420,7 @@ Context: "%2"
 void NetworkManager::regenerateContent(int id, const QString &table) {
     QString provider = SettingsManager::instance()->getValue("provider", "Ollama").toString();
     QString model = SettingsManager::instance()->getValue("model", "llama3.1-16k:latest").toString();
+
 
     qDebug() << "🔄 Regenerating" << table << "ID:" << id << "with provider:" << provider;
 

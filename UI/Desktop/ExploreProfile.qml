@@ -99,6 +99,28 @@ Item {
                     }
                 }
             }
+
+            // ButtonItem {
+            //     id: editAIResponseButton
+            //     text: "Edit JSON️"
+            //     backgroundColor: "#e5e7eb"
+            //     hoverColor: "#d2d3d6"
+            //     textColor: "#000"
+            //     Layout.alignment: Qt.AlignVCenter
+            //     Layout.preferredWidth: 160
+            //     onClicked: {
+            //         /*
+            //         explorerNavbar.visible = true
+            //         exploreProfileNavbar.visible = false
+            //         */
+
+            //         if (profileType === "word") {
+            //             ai_response = dbManager.getWordProfile(profileId).ai_response;
+            //         } else {
+            //             // later get the ai response for sentences and show it.
+            //         }
+            //     }
+            // }
         }
 
         Item { height: 10 }
@@ -145,11 +167,39 @@ Item {
                         }
                     }
 
-                    Text {
-                        font.bold: true
-                        font.pointSize: 16
-                        text: "Your Saved List"
+                    RowLayout {
+                        spacing: 10
+                        width: parent.width
+
+                        Text {
+                            font.bold: true
+                            font.pointSize: 16
+                            text: "Your Saved List"
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            height: 1
+                        }
+
+                        Button {
+                            text: "➕"
+                            width: 35
+                            height: 35
+                            // Remove button styling to make it appear transparent
+                            background: Rectangle {
+                                color: "transparent"
+                            }
+
+                            onClicked: {
+                                console.log("add a note widget or something! and save it to database as user notes!")
+                            }
+
+                        }
                     }
+
+
 
                     Rectangle{
                         width: parent.width
@@ -193,7 +243,7 @@ Item {
                     // }
 
 
-                    // add user notes here. maybe prompt user to show they understood and can use the word.
+                    // add user notes here.
                 }
             }
 
@@ -224,7 +274,13 @@ Item {
 
 
                         jsonData: {
-                            var response = dbManager.getWordProfile(profileId).ai_response;
+                            var response = ""
+                            if (profileType === "word"){
+                                response = dbManager.getWordProfile(profileId).ai_response;
+                            }
+                            else {
+                                response = dbManager.getSentencesProfile(profileId).ai_response;
+                            }
                             if (typeof response === "string") {
                                 return parseJson(response); // Use your existing parser function
                             }
@@ -246,6 +302,9 @@ Item {
             let data = ""
             if (profileType === "word") {
                 data = dbManager.getWordProfile(profileId).context
+                if(!data){
+                data = dbManager.getWordProfile(profileId).word
+                }
             } else {
                 data = dbManager.getSentencesProfile(profileId).text
             }

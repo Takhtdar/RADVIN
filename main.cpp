@@ -57,12 +57,12 @@ int main(int argc, char *argv[])
     ClipboardListener clipboardListener;
     DatabaseManager dbManager("RADVIN.db");
     NetworkManager networkManager(&dbManager);
-    QObject::connect(
-        &dbManager,
-        &DatabaseManager::queueItemMarkedForProcessing,
-        &networkManager,
-        &NetworkManager::handleQueueItemMarked
-        );
+    // QObject::connect(
+    //     &dbManager,
+    //     &DatabaseManager::queueItemMarkedForProcessing,
+    //     &networkManager,
+    //     &NetworkManager::handleQueueItemMarked
+    //     );
  app.setQuitOnLastWindowClosed(false);
 
 

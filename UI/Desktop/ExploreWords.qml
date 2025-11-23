@@ -16,8 +16,6 @@ Item {
         anchors.fill: parent
         clip: true
 
-
-
         GridView {
             id: grid
             anchors.fill: parent
@@ -33,10 +31,11 @@ Item {
             property int minCellWidth: 160
             property int columns: Math.max(1, Math.floor(width / minCellWidth))
             property int spacing: 12
+            cellHeight: 40 + spacing  // Include spacing in cell height
 
             delegate: Item {
                 width: grid.cellWidth
-                height: 70
+                height: 40
                 property bool hovered: false
 
 
