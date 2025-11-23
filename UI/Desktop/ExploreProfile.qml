@@ -9,25 +9,6 @@ Item {
     property var previousState: null
     property var parentExplorer: null
 
-    function parseJson(jsonString) {
-        try {
-            // Remove markdown code block markers if present
-            var cleaned = jsonString.trim();
-            if (cleaned.startsWith("```json")) {
-                cleaned = cleaned.substring(7); // Remove "```json"
-            }
-            if (cleaned.endsWith("```")) {
-                cleaned = cleaned.substring(0, cleaned.lastIndexOf("```")); // Remove trailing "```"
-            }
-            cleaned = cleaned.trim();
-
-            return JSON.parse(cleaned);
-        } catch (e) {
-            console.log("JSON parsing error:", e);
-            console.log("Original string:", jsonString);
-            return {};
-        }
-    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -270,8 +251,7 @@ Item {
 
                     DynamicJsonViewer {
                         Layout.fillWidth: true
-                        Layout.fillHeight: true  // This makes it fill the available height
-
+                        Layout.fillHeight: true
 
                         jsonData: {
                             var response = ""
@@ -281,8 +261,16 @@ Item {
                             else {
                                 response = dbManager.getSentencesProfile(profileId).ai_response;
                             }
-                            if (typeof response === "string") {
-                                return parseJson(response); // Use your existing parser function
+
+                            // Parse the JSON string to an object before returning
+                            if (typeof response === "string" && response.trim() !== "") {
+                                try {
+                                    return JSON.parse(response);
+                                } catch (e) {
+                                    console.log("JSON parsing error:", e);
+                                    console.log("Response was:", response);
+                                    return {}; // Return empty object if parsing fails
+                                }
                             }
                             return response;
                         }

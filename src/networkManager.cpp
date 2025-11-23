@@ -266,6 +266,49 @@ QString stripBoldExcept(const QString &sentence, const QString &targetWord) {
 }
 
 
+QJsonObject NetworkManager::parseJson(const QString &jsonString) {
+    QString cleaned = jsonString.trimmed();
+
+    // Remove markdown code block markers if present
+    if (cleaned.startsWith("```json", Qt::CaseInsensitive)) {
+        cleaned = cleaned.mid(7).trimmed(); // Remove "```json"
+    }
+    if (cleaned.endsWith("```")) {
+        int lastBacktick = cleaned.lastIndexOf("```");
+        if (lastBacktick > 0) {
+            cleaned = cleaned.left(lastBacktick).trimmed(); // Remove trailing "```"
+        }
+    }
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(cleaned.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "JSON parsing error:" << parseError.errorString();
+        qWarning() << "Original string:" << jsonString;
+
+        // Return error JSON object
+        QJsonObject errorObj;
+        errorObj["meta"] = QJsonObject{
+            {"is_valid", false},
+            {"Error", parseError.errorString()}
+        };
+        return errorObj;
+    }
+
+    if (doc.isObject()) {
+        return doc.object();
+    } else {
+        qWarning() << "JSON is not an object, returning error structure";
+        QJsonObject errorObj;
+        errorObj["meta"] = QJsonObject{
+            {"is_valid", false},
+            {"Error", "JSON is not an object"}
+        };
+        return errorObj;
+    }
+}
+
 
 
 void NetworkManager::processSentence(int id, const QString &formattedText) {
@@ -281,8 +324,11 @@ void NetworkManager::processSentence(int id, const QString &formattedText) {
         provider->deleteLater();
         qDebug() << "Sentence AI response:" << response;
         // store raw ai response into sentences.ai_response and mark processed=2
-        // maybe here we remove the ```json and ``` at the end
-        m_dbManager->updateSentenceWithAIAnalysis(id, response);
+        QJsonObject parsedJson = parseJson(response);
+        // Convert back to string for database storage
+        QJsonDocument doc(parsedJson);
+        QString finalResponse = doc.toJson(QJsonDocument::Compact);
+        m_dbManager->updateSentenceWithAIAnalysis(id, finalResponse);
 
         // fallback: fall back to regex: extract **bold** text or fallback to your extractBoldWords call
         QString sentenceText = m_dbManager->getSentencesProfile(id).value("text").toString();
@@ -292,12 +338,16 @@ void NetworkManager::processSentence(int id, const QString &formattedText) {
             QString context = stripBoldExcept(sentenceText, w);
             qDebug() << "bold word: " << w << " context: " << context;
 
-            int newWordId = m_dbManager->insertWordProfile(w, context);
+
+            int newWordId = m_dbManager->insertWordProfile(w, context.isEmpty() ? w : context );
             if (newWordId > 0) processWord(newWordId, context);
         }
     });
     provider->sendPrompt(prompt, /*model*/ SettingsManager::instance()->getValue("model").toString());
 }
+
+
+
 
 
 void NetworkManager::processWord(int id, const QString &context) {
@@ -325,26 +375,46 @@ Context: "%2"
         provider->deleteLater();
         qDebug() << "Word AI response for" << word << ":" << response;
 
-        QJsonParseError err;
-        QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &err);
-        if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-            qWarning() << "Invalid JSON for word" << word << ":" << err.errorString();
-            m_dbManager->updateWordProfileWithAIFallback(id, response);
+        // Parse the JSON response (this handles markdown removal and error handling)
+        QJsonObject parsedJson = parseJson(response);
+
+        // Convert back to string for database storage
+        QJsonDocument doc(parsedJson);
+        QString finalResponse = doc.toJson(QJsonDocument::Compact);
+
+        // Check if parsing was successful (is_valid will be false if there was an error)
+        QJsonValue metaValue = parsedJson.value("meta");
+        if (!metaValue.isObject() || !parsedJson.value("meta").toObject().value("is_valid").toBool(true)) {
+            // Parsing failed, use fallback
+            m_dbManager->updateWordProfileWithAIFallback(id, finalResponse);
             return;
         }
 
-        QJsonObject obj = doc.object();
-        QString type = obj.value("type").toString();
-        QString definition = obj.value("definition").toString();
-        QString synonyms = QJsonDocument(obj.value("synonyms").toArray()).toJson(QJsonDocument::Compact);
-        QString antonyms = QJsonDocument(obj.value("antonyms").toArray()).toJson(QJsonDocument::Compact);
-        QString examples = QJsonDocument(obj.value("example_sentences").toArray()).toJson(QJsonDocument::Compact);
+        // Extract type from the parsed JSON
+        QString type;
 
-        m_dbManager->updateWordProfileStructured(id, type, definition, examples, synonyms, antonyms);
+        // Try to get type from meta.part_of_speech first (based on your expected JSON)
+        QJsonValue metaObj = parsedJson.value("meta");
+        if (metaObj.isObject()) {
+            type = metaObj.toObject().value("part_of_speech").toString();
+        }
+
+        // If not found in meta, try the root level (for your fallback prompt format)
+        if (type.isEmpty()) {
+            type = parsedJson.value("type").toString();
+        }
+
+        // If still empty, use a default
+        if (type.isEmpty()) {
+            type = "unknown";
+        }
+
+        // Update the database with both the response and the type
+        m_dbManager->updateWordProfileWithAIFallback(id, finalResponse); // This sets processed=2 and stores the response
+        m_dbManager->updateWordProfileType(id, type); // This updates just the type field
     });
     provider->sendPrompt(prompt, SettingsManager::instance()->getValue("model").toString());
 }
-
 
 
 
@@ -417,10 +487,89 @@ Context: "%2"
 
 
 // regenerate button need to be worked on later!
+// void NetworkManager::regenerateContent(int id, const QString &table) {
+//     QString provider = SettingsManager::instance()->getValue("provider", "Ollama").toString();
+//     QString model = SettingsManager::instance()->getValue("model", "llama3.1-16k:latest").toString();
+
+
+//     qDebug() << "🔄 Regenerating" << table << "ID:" << id << "with provider:" << provider;
+
+//     if (provider.compare("Ollama", Qt::CaseInsensitive) == 0) {
+//         emit contentRegenerationStarted(id, table);
+
+//         if (table == "sentence") {
+//             QString text = m_dbManager->getSentencesProfile(id).value("text").toString();
+//             QStringList boldWords = extractBoldWords(text);
+//             qDebug() << "🧠 Extracted bold words:" << boldWords;
+
+//             QString cleanText = text;
+//             for (const QString &word : boldWords) {
+//                 cleanText.replace("**" + word + "**", word);
+//             }
+
+//             // Get sentence prompt file path from settings, fallback to default
+//             QString sentencePromptFile = SettingsManager::instance()->getValue("sentence_prompt_file", getDefaultPromptFilePath("sentence")).toString();
+//             QString sentencePrompt = readPromptFromFile(sentencePromptFile, "", cleanText);
+
+//             if (sentencePrompt.isEmpty()) {
+//                 sentencePrompt = QString("Analyze this sentence and explain the vocabulary: '%1'").arg(cleanText);
+//             }
+
+//             qDebug() << "🎯 Ollama sentence prompt:" << sentencePrompt;
+
+//             OllamaProvider *mainProvider = new OllamaProvider(this);
+//             connect(mainProvider, &OllamaProvider::responseReceived, [this, id](const QString &response) {
+//                 qDebug() << "💬 Sentence analysis response:" << response;
+//                 m_dbManager->updateSentenceWithAIAnalysis(id, response);
+//                 emit contentRegenerated(id, "sentence");
+//             });
+//             mainProvider->sendPrompt(sentencePrompt, model);
+
+//             for (const QString &word : boldWords) {
+//                 QString wordPromptFile = SettingsManager::instance()->getValue("word_prompt_file", getDefaultPromptFilePath("word")).toString();
+//                 QString wordPrompt = readPromptFromFile(wordPromptFile, word, cleanText);
+
+//                 if (wordPrompt.isEmpty()) {
+//                     wordPrompt = QString("Explain the meaning, usage, and example sentence for the word: '%1'").arg(word);
+//                 }
+
+//                 qDebug() << "🔍 Word prompt:" << wordPrompt;
+
+//                 OllamaProvider *wordProvider = new OllamaProvider(this);
+//                 connect(wordProvider, &OllamaProvider::responseReceived, [this, word, text](const QString &response) {
+//                     qDebug() << "📘 Word response for" << word << ":" << response;
+//                     m_dbManager->createWordProfile(word, text, response);
+//                 });
+//                 wordProvider->sendPrompt(wordPrompt, model);
+//             }
+//         } else if (table == "word") {
+//             QString text = m_dbManager->getWordProfile(id).value("word").toString();
+//             QString context = m_dbManager->getWordProfile(id).value("context").toString();
+
+//             QString wordPromptFile = SettingsManager::instance()->getValue("word_prompt_file", getDefaultPromptFilePath("word")).toString();
+//             QString wordPrompt = readPromptFromFile(wordPromptFile, text, context);
+
+//             if (wordPrompt.isEmpty()) {
+//                 wordPrompt = QString("Provide detailed information about the word '%1': definition, usage, examples, and memory tips.").arg(text);
+//             }
+
+//             qDebug() << "🔍 Word regeneration prompt:" << wordPrompt;
+
+//             OllamaProvider *wordProvider = new OllamaProvider(this);
+//             connect(wordProvider, &OllamaProvider::responseReceived, [this, id](const QString &response) {
+//                 qDebug() << "📘 Updated word response:" << response;
+//                 m_dbManager->updateWordProfile(id, response);
+//                 emit contentRegenerated(id, "word");
+//             });
+//             wordProvider->sendPrompt(wordPrompt, model);
+//         }
+//     }
+// }
+
+
 void NetworkManager::regenerateContent(int id, const QString &table) {
     QString provider = SettingsManager::instance()->getValue("provider", "Ollama").toString();
     QString model = SettingsManager::instance()->getValue("model", "llama3.1-16k:latest").toString();
-
 
     qDebug() << "🔄 Regenerating" << table << "ID:" << id << "with provider:" << provider;
 
@@ -450,7 +599,13 @@ void NetworkManager::regenerateContent(int id, const QString &table) {
             OllamaProvider *mainProvider = new OllamaProvider(this);
             connect(mainProvider, &OllamaProvider::responseReceived, [this, id](const QString &response) {
                 qDebug() << "💬 Sentence analysis response:" << response;
-                m_dbManager->updateSentenceWithAIAnalysis(id, response);
+
+                // Parse JSON and handle errors
+                QJsonObject parsedJson = parseJson(response);
+                QJsonDocument doc(parsedJson);
+                QString finalResponse = doc.toJson(QJsonDocument::Compact);
+
+                m_dbManager->updateSentenceWithAIAnalysis(id, finalResponse);
                 emit contentRegenerated(id, "sentence");
             });
             mainProvider->sendPrompt(sentencePrompt, model);
@@ -468,7 +623,13 @@ void NetworkManager::regenerateContent(int id, const QString &table) {
                 OllamaProvider *wordProvider = new OllamaProvider(this);
                 connect(wordProvider, &OllamaProvider::responseReceived, [this, word, text](const QString &response) {
                     qDebug() << "📘 Word response for" << word << ":" << response;
-                    m_dbManager->createWordProfile(word, text, response);
+
+                    // Parse JSON and handle errors
+                    QJsonObject parsedJson = parseJson(response);
+                    QJsonDocument doc(parsedJson);
+                    QString finalResponse = doc.toJson(QJsonDocument::Compact);
+
+                    m_dbManager->createWordProfile(word, text, finalResponse);
                 });
                 wordProvider->sendPrompt(wordPrompt, model);
             }
@@ -488,7 +649,31 @@ void NetworkManager::regenerateContent(int id, const QString &table) {
             OllamaProvider *wordProvider = new OllamaProvider(this);
             connect(wordProvider, &OllamaProvider::responseReceived, [this, id](const QString &response) {
                 qDebug() << "📘 Updated word response:" << response;
-                m_dbManager->updateWordProfile(id, response);
+
+                // Parse JSON and handle errors
+                QJsonObject parsedJson = parseJson(response);
+
+                // Extract type for database update
+                QString type;
+                QJsonValue metaObj = parsedJson.value("meta");
+                if (metaObj.isObject()) {
+                    type = metaObj.toObject().value("part_of_speech").toString();
+                }
+                if (type.isEmpty()) {
+                    type = parsedJson.value("type").toString();
+                }
+                if (type.isEmpty()) {
+                    type = "unknown";
+                }
+
+                // Convert to string for database storage
+                QJsonDocument doc(parsedJson);
+                QString finalResponse = doc.toJson(QJsonDocument::Compact);
+
+                // Update both the response and type
+                m_dbManager->updateWordProfileWithAIFallback(id, finalResponse);
+                m_dbManager->updateWordProfileType(id, type);
+
                 emit contentRegenerated(id, "word");
             });
             wordProvider->sendPrompt(wordPrompt, model);

@@ -59,6 +59,8 @@ private:
     QList<QTcpSocket*> m_clients;
 
     void processIncomingData(const QByteArray &data);
+    // later move me to helper header
+    QJsonObject parseJson(const QString &jsonString);
 
 };
 

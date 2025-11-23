@@ -44,9 +44,7 @@ public:
      Q_INVOKABLE bool updateWordProfile(int id, const QString &profileData);
 
      int insertWordProfile(const QString &word, const QString &context);
-     void updateWordProfileStructured(int id,
-                                 const QString &type, const QString &definition, const QString &examples,
-                                 const QString &synonyms, const QString &antonyms);
+     void updateWordProfileType(int id, const QString &type);
 
 
 signals:

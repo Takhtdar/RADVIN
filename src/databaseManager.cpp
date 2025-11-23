@@ -195,22 +195,15 @@ int DatabaseManager::insertWordProfile(const QString &word, const QString &conte
 
 
 
-void DatabaseManager::updateWordProfileStructured(int id,
-                                                  const QString &type, const QString &definition, const QString &examples,
-                                                  const QString &synonyms, const QString &antonyms)
+void DatabaseManager::updateWordProfileType(int id, const QString &type)
 {
     QSqlQuery q(m_db);
     q.prepare(R"(
         UPDATE word_profiles SET
-            type = ?, definition = ?, example_sentences = ?, synonyms = ?, antonyms = ?,
-            processed = 2, updated_at = datetime('now')
+            type = ?, processed = 2, updated_at = datetime('now')
         WHERE id = ?
     )");
     q.addBindValue(type);
-    q.addBindValue(definition);
-    q.addBindValue(examples);
-    q.addBindValue(synonyms);
-    q.addBindValue(antonyms);
     q.addBindValue(id);
     if (!q.exec()) qWarning() << "updateWordProfileStructured failed:" << q.lastError().text();
     else qDebug() << "Word profile updated structured id:" << id;
