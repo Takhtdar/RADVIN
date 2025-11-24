@@ -134,12 +134,14 @@ void NetworkManager::processIncomingData(const QByteArray &data) {
         return;
     }
 
+    QJsonArray receivedIds;  // ← Store the IDs to send back
+
     if (doc.isArray()) {
-        // Handle array of entries (like from your Android app)
         QJsonArray entries = doc.array();
         for (const QJsonValue &value : entries) {
             if (value.isObject()) {
                 QJsonObject obj = value.toObject();
+                long id = obj.value("id").toDouble();  // ← Get the ID
                 QString text = obj.value("text").toString();
                 QString book = obj.value("book").toString();
 
@@ -153,12 +155,15 @@ void NetworkManager::processIncomingData(const QByteArray &data) {
 
                     m_dbManager->addEntry(text, metadata);
                     qDebug() << "📥 Added external entry:" << text;
+
+                    receivedIds.append(QJsonValue((double)id));  // ← Add ID to response
                 }
             }
         }
     } else if (doc.isObject()) {
         // Handle single entry
         QJsonObject obj = doc.object();
+        long id = obj.value("id").toDouble();  // ← Get the ID
         QString text = obj.value("text").toString();
         QString book = obj.value("book").toString();
 
@@ -172,10 +177,32 @@ void NetworkManager::processIncomingData(const QByteArray &data) {
 
             m_dbManager->addEntry(text, metadata);
             qDebug() << "📥 Added external entry:" << text;
+
+            receivedIds.append(QJsonValue((double)id));  // ← Add ID to response
         }
     }
-}
 
+    // Send back the IDs as JSON
+    QJsonDocument responseDoc(receivedIds);
+    QString jsonResponse = QString::fromUtf8(responseDoc.toJson());
+    qDebug() << "📤 Sending back IDs:" << jsonResponse;
+
+    // Send JSON response back to client
+    QString httpResponse = QString("HTTP/1.1 200 OK\r\n"
+                                   "Content-Type: application/json\r\n"
+                                   "Connection: close\r\n"
+                                   "Content-Length: %1\r\n"
+                                   "\r\n"
+                                   "%2")
+                               .arg(jsonResponse.length())
+                               .arg(jsonResponse);
+    QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
+    if (clientSocket) {
+        clientSocket->write(httpResponse.toUtf8());
+        clientSocket->flush();
+        clientSocket->disconnectFromHost();
+    }
+}
 
 
 
