@@ -12,6 +12,8 @@ Item {
     property string currentSentenceType: ""
     property int unsentCount: 0
     property string formattedSentenceText: ""
+    property bool isMarkdownView: false // Add this property at the top
+
 
     ListView {
         id: sentenceList
@@ -47,8 +49,10 @@ Item {
             unsentCount = dbManager.getQueueCount();
             if (sentences.length > 0) {
                 loadSentenceIntoOverlay(sentences[0].id, sentences[0].text, sentences[0].type);
+                editor.enabled = true
             } else {
                 loadSentenceIntoOverlay(-1, "No sentence left! read more.", "");
+                editor.enabled = false
             }
         }
 
@@ -57,7 +61,7 @@ Item {
             currentSentenceText = text;
             currentSentenceType = type;
             formattedSentenceText = text;
-            paragraphContainer.generateWords();
+            editor.text = text;
         }
     }
 
@@ -109,86 +113,115 @@ Item {
                         width: textContainer.width
                         implicitHeight: paragraphContainer.height
 
+                        TextArea {
+                                id: editor
+                                width: textContainer.width
+                                wrapMode: TextArea.WrapAtWordBoundaryOrAnywhere
+                                textFormat: isMarkdownView ? TextEdit.MarkdownText : TextEdit.PlainText
 
-                        property var wordData: [] // keeps {word, bold}
-                        property var wordItems: []
+                                font.pointSize: 14
+                                text: currentSentenceText
+                                onTextChanged: { formattedSentenceText = text }
 
-                        function generateWords() {
-                            // clear old
-                            for (var i = 0; i < wordItems.length; i++) {
-                                wordItems[i].destroy();
-                            }
-                            wordItems = [];
+                                Keys.onPressed: (event) => {
+                                    if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_B) {
+                                        event.accepted = true;
+                                        formatSelectionWithStars();
+                                    }
+                                    if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_E) {
+                                        event.accepted = true;
 
-                            if (currentSentenceText === "")
-                                return;
+                                        var savedPos = editor.cursorPosition;
 
-                            wordData = [];
-                            var words = currentSentenceText.split(/\s+/);
-                            var yPos = 0;
-                            var xPos = 10;
-                            var maxWidth = textContainer.width - 20;
-                            var lineHeight = 26;
+                                        // Count ** patterns before cursor in current text
+                                        var currentText = text;
+                                        var textUpToCursor = currentText.substring(0, savedPos);
+                                        var starsCount = (textUpToCursor.match(/\*\*/g) || []).length * 2;
 
-                            for (var w = 0; w < words.length; w++) {
-                                var word = words[w];
-                                var tempText = Qt.createQmlObject('import QtQuick 2.15; Text { text: "' + word.replace(/"/g, '\\"') + ' "; font.pointSize: 14; visible: false;  }', paragraphContainer);
-                                tempText.width; // force measure
-                                var wordWidth = tempText.contentWidth;
-                                tempText.destroy();
+                                        // Toggle the view
+                                        isMarkdownView = !isMarkdownView;
 
-                                if (xPos + wordWidth > maxWidth) {
-                                    xPos = 10;
-                                    yPos += lineHeight;
-                                }
-
-                                var textObj = Qt.createQmlObject(`
-                                    import QtQuick 2.15;
-                                    Text {
-                                        text: "${word.replace(/"/g, '\\"')}";
-                                        x: ${xPos};
-                                        y: ${yPos};
-                                        font.pointSize: 14;
-                                        color: "black";
-                                        width: ${maxWidth};
-                                        wrapMode: Text.WrapAnywhere;
-                                        topPadding: 15
-                                        rightPadding: 15
-                                        leftPadding: 15
-                                        MouseArea {
-                                            anchors.fill: parent;
-                                            hoverEnabled: true;
-                                            onClicked: {
-                                                parent.font.bold = !parent.font.bold;
-                                                paragraphContainer.updateFormattedText();
-                                            }
+                                        // Adjust cursor based on transition direction
+                                        if (isMarkdownView) { // Switching to markdown - stars get "hidden"
+                                            editor.cursorPosition = savedPos - starsCount;
+                                        } else { // Switching to plain - stars become visible
+                                            editor.cursorPosition = savedPos + starsCount;
                                         }
                                     }
-                                `, paragraphContainer);
-                                paragraphContainer.wordData.push({ word: word, bold: false });
-                                paragraphContainer.wordItems.push(textObj);
-                                xPos += wordWidth + 5;
-                            }
-                            paragraphContainer.height = yPos + lineHeight + 10;
-                            updateFormattedText();
-                        }
+                                }
 
-                        function updateFormattedText() {
-                            var boldStates = [];
-                            var formatted = "";
-                            for (var i = 0; i < wordItems.length; i++) {
-                                var textObj = wordItems[i];
-                                var isBold = textObj.font.bold;
-                                var word = textObj.text;
-                                boldStates.push(isBold);
-                                if (isBold) {
-                                    formatted += "**" + word + "** ";
-                                } else {
-                                    formatted += word + " ";
+                                function formatSelectionWithStars() {
+                                    // SAVE CURSOR + SELECTION EARLY
+                                    var oldCursor = cursorPosition;
+                                    var oldAnchor = selectionStart;
+
+                                    // Read current selection (read-only properties but readable)
+                                    var selStart = selectionStart;
+                                    var selEnd = selectionEnd;
+
+                                    // If nothing selected, expand to word under cursor
+                                    if (selStart === selEnd) {
+                                        var txt = text;
+                                        var pos = cursorPosition;
+                                        if (pos < 0) pos = 0;
+                                        if (pos > txt.length) pos = txt.length;
+
+                                        var s = pos;
+                                        while (s > 0 && !/\s/.test(txt.charAt(s-1))) s--;
+                                        var e = pos;
+                                        while (e < txt.length && !/\s/.test(txt.charAt(e))) e++;
+                                        selStart = s;
+                                        selEnd = e;
+                                        if (selStart === selEnd) return; // nothing to format
+                                    }
+
+                                    var before = text.substring(0, selStart);
+                                    var sel = text.substring(selStart, selEnd);
+                                    var after = text.substring(selEnd);
+
+                                    // Case A: text inside selection is already **wrapped**
+                                    if (sel.length >= 4 && sel.indexOf("**") === 0 && sel.lastIndexOf("**") === sel.length - 2) {
+                                        var newSel = sel.substring(2, sel.length - 2);
+                                        text = before + newSel + after;
+
+                                        // Only adjust cursor in PlainText mode
+                                        if (!isMarkdownView) {
+                                            cursorPosition = oldCursor - 2;
+                                        } else {
+                                            cursorPosition = oldCursor; // In Markdown mode, rendered position stays same
+                                        }
+                                        return;
+                                    }
+
+                                    // Case B: selection is surrounded by stars outside
+                                    if (before.length >= 2 && before.slice(-2) === "**" && after.length >= 2 && after.slice(0,2) === "**") {
+                                        var newBefore = before.slice(0, -2);
+                                        var newAfter = after.slice(2);
+                                        text = newBefore + sel + newAfter;
+
+                                        // Only adjust cursor in PlainText mode
+                                        if (!isMarkdownView) {
+                                            cursorPosition = oldCursor - 2;
+                                        } else {
+                                            cursorPosition = oldCursor; // In Markdown mode, rendered position stays same
+                                        }
+                                        return;
+                                    }
+
+                                    // Else: wrap selection with **
+                                    var wrapped = "**" + sel + "**";
+                                    var newText = before + wrapped + after;
+                                    text = newText;
+
+                                    // Only adjust cursor in PlainText mode
+                                    if (!isMarkdownView) {
+                                        cursorPosition = oldCursor + 2;
+                                    } else {
+                                        cursorPosition = oldCursor; // In Markdown mode, rendered position stays same
+                                    }
                                 }
                             }
-                            formattedSentenceText = formatted.trim();
-                        }
+
                     }
                 }
             }
@@ -273,8 +306,4 @@ Item {
             }
         }
     }
-
-
-
-
 }
