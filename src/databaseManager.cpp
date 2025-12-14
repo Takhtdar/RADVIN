@@ -6,6 +6,13 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QSqlRecord>
+#include <QFile>
+#include <QTextStream>
+#include <QFileInfo>
+#include <QUrl>
+
+
+
 
 DatabaseManager::DatabaseManager(const QString &path, QObject *parent)
     : QObject(parent)
@@ -152,6 +159,36 @@ bool DatabaseManager::addEntry(const QString &text, const QVariantMap &metadata)
 }
 
 
+
+bool DatabaseManager::importTextFile(const QString &filePathFromQml)
+{
+    QUrl url(filePathFromQml);
+    QString localPath = url.isLocalFile()
+                            ? url.toLocalFile()
+                            : filePathFromQml;
+
+    QFile file(localPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open file:" << localPath;
+        return false;
+    }
+
+    QTextStream in(&file);
+    QVariantMap metadata;
+    metadata["source"] = QFileInfo(localPath).fileName();
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (!line.isEmpty())
+            addEntry(line, metadata);
+    }
+
+    return true;
+}
+
+
+
+
 // mark for delete
 bool DatabaseManager::createWordProfile(const QString &word, const QString &context, const QString &ai_response) {
     if (word.isEmpty()) {
@@ -189,7 +226,7 @@ int DatabaseManager::insertWordProfile(const QString &word, const QString &conte
         return -1;
     }
     int id = q.lastInsertId().toInt();
-    emit queueChanged();
+    //emit queueChanged();
     return id;
 }
 
@@ -207,7 +244,7 @@ void DatabaseManager::updateWordProfileType(int id, const QString &type)
     q.addBindValue(id);
     if (!q.exec()) qWarning() << "updateWordProfileStructured failed:" << q.lastError().text();
     else qDebug() << "Word profile updated structured id:" << id;
-    emit queueChanged();
+    // emit queueChanged();
 }
 
 
@@ -276,7 +313,7 @@ void DatabaseManager::updateWordProfileWithAIFallback(int id, const QString &raw
     q.addBindValue(id);
     if (!q.exec()) qWarning() << "updateWordProfileWithAIFallback failed:" << q.lastError().text();
     else qDebug() << "Word profile updated (fallback) id:" << id;
-    emit queueChanged();
+    // emit queueChanged();
 }
 
 

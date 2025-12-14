@@ -14,6 +14,7 @@ public:
     explicit DatabaseManager(const QString &path, QObject *parent = nullptr);
 
     Q_INVOKABLE bool addEntry(const QString &text, const QVariantMap &metadata);
+    Q_INVOKABLE bool importTextFile(const QString &filePath);
     Q_INVOKABLE bool createWordProfile(const QString &word, const QString &context, const QString &ai_response);
 
     Q_INVOKABLE QVariantList getQueueEntries(int limit = 100);
@@ -27,6 +28,7 @@ public:
     Q_INVOKABLE QVariantMap getWordProfile(const int id);
 
     Q_INVOKABLE bool deleteSentence(const int id);
+
 
 
     Q_INVOKABLE QVariantMap getSentencesProfile(const int id);

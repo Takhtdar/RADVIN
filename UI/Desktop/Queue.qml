@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
+
 
 Item {
     width: mainScreen.width
@@ -299,7 +301,28 @@ Item {
                         width: textContainer.width
                         Column {
                             anchors.fill: parent
-                            ColumnLayout { }
+                            ColumnLayout {
+                                // I like for my button to appear here.
+                                Button {
+                                    text: "Import text file"
+                                    Layout.fillWidth: true
+
+                                    onClicked: {
+                                        fileDialog.open()
+                                    }
+                                }
+
+                                FileDialog {
+                                    id: fileDialog
+                                    title: "Select text file"
+                                    nameFilters: ["Text files (*.txt)"]
+
+                                    onAccepted: {
+                                        dbManager.importTextFile(selectedFile)
+                                    }
+                                }
+
+                            }
                         }
                     }
                 }
