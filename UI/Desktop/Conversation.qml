@@ -4,10 +4,11 @@ import QtQuick.Controls
 
 Item {
     id: root
+    Layout.fillWidth: true
+    Layout.fillHeight: true
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 10
         spacing: 10
 
         // Messages area
@@ -18,6 +19,8 @@ Item {
 
             ListView {
                 id: messageList
+                anchors.fill: parent
+
                 model: ListModel {
                     ListElement { text: "Hello! How can I help you?"; isUser: false }
                     ListElement { text: "Can you design a chat window?"; isUser: true }
@@ -47,6 +50,7 @@ Item {
                             width: parent.width - 20
                             anchors.centerIn: parent
                             color: isUser ? "white" : "black"
+                            font.pixelSize: 16
                         }
                     }
                 }

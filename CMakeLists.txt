@@ -45,6 +45,8 @@ qt_add_qml_module(appRadvin_Qt
         QML_FILES UI/Desktop/ExploreProfile.qml
         QML_FILES UI/Desktop/Conversation.qml
         QML_FILES UI/Desktop/WordDetails.qml
+        QML_FILES UI/Desktop/Panel.qml
+        QML_FILES UI/Desktop/RobustTable.qml
 
 )
 
@@ -114,6 +116,8 @@ qt_add_resources(appRadvin_Qt
         UI/Desktop/Conversation.qml
         UI/Shared/Main.qml
         UI/Desktop/WordDetails.qml
+        UI/Desktop/Panel.qml
+        UI/Desktop/RobustTable.qml
 )
 
 
