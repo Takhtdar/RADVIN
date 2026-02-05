@@ -14,7 +14,7 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        Item{ width: 15 }
+        Item{ width: 0 }
 
 
 
@@ -27,9 +27,11 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 50 // Fixed height for header
+                Layout.preferredHeight: 40 // Fixed height for header
                 color: "#eff2f5" // Light grey/blue background from image
                 z: 30
+                topLeftRadius:  8
+                topRightRadius: 8
 
                 // Use RowLayout to align Icon and Text side-by-side
                 RowLayout {
@@ -64,6 +66,8 @@ Item {
                 padding: 10
                 wrapMode: Text.Wrap
                 clip: true
+                Keys.onTabPressed: nextItemInFocusChain().forceActiveFocus(Qt.TabFocusReason)
+
                 background: Rectangle { // Optional: Visual border like TextField
                         border.color: parent.activeFocus ? "#2196F3" : "#EBEEF3"
                         bottomLeftRadius:  8
@@ -72,20 +76,12 @@ Item {
                         anchors.fill: parent
 
                         anchors.top: parent.top
-                        anchors.topMargin: -1 // Hides top border (prev. trick)
+                        anchors.topMargin: -2 // Hides top border (prev. trick)
 
-                        anchors.bottom: parent.bottom
-                        // anchors.bottomMargin: 0 // (Default is fine here)
-
-                        anchors.left: parent.left
-                        anchors.leftMargin: 1   // <--- Pushes in 2px from left
-
-                        anchors.right: parent.right
-                        anchors.rightMargin: 1  // <--- Pushes in 2px from right
                 }
             }
 
-            Item{ height: 20 }
+            Item{ height: 10 }
 
 
             // 1b. Middle Section (50% relative height) flash card back
@@ -97,6 +93,7 @@ Item {
                 horizontalAlignment: Text.AlignLeft
                 verticalAlignment: Text.AlignTop
                 padding: 10
+                Keys.onTabPressed: nextItemInFocusChain().forceActiveFocus(Qt.TabFocusReason)
                 wrapMode: Text.Wrap
                 background: Rectangle { // Optional: Visual border like TextField
                         border.color: parent.activeFocus ? "#2196F3" : "#EBEEF3"
@@ -105,26 +102,73 @@ Item {
                 }
             }
 
-            Item{ height: 20 }
+            Item{ height: 10 }
 
 
-            // 1c. Bottom Bar (50px fixed height)  panel
             RowLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 50
+                spacing: 10 // This creates the space between buttons only
 
-                Button{
+                // Repeated Button Template
+                Button {
                     text: "Add Card"
+                    Layout.fillWidth: true
+                    contentItem: Text {
+                        text: parent.text
+                        font.pixelSize: 14
+                        color: parent.down ? "#666" : "#333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        implicitWidth: 100
+                        color: parent.down ? "#f0f0f0" : (parent.hovered ? "#f8f9fa" : "#EBEEF3")
+                        border.color: "#EBEEF3"
+                        border.width: 1
+                        radius: 6
+                    }
                 }
 
-                Button{
+                Button {
                     text: "Cloze"
+                    Layout.fillWidth: true
+                    contentItem: Text {
+                        text: parent.text
+                        font.pixelSize: 14
+                        color: parent.down ? "#666" : "#333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.down ? "#f0f0f0" : (parent.hovered ? "#f8f9fa" : "#EBEEF3")
+                        border.color: "#EBEEF3"
+                        border.width: 1
+                        radius: 6
+                    }
                 }
 
-                Button{
+                Button {
                     text: "Add Image"
+                    Layout.fillWidth: true
+                    contentItem: Text {
+                        text: parent.text
+                        font.pixelSize: 14
+                        color: parent.down ? "#666" : "#333"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.down ? "#f0f0f0" : (parent.hovered ? "#f8f9fa" : "#EBEEF3")
+                        border.color: "#EBEEF3"
+                        border.width: 1
+                        radius: 6
+                    }
                 }
             }
+
+            Item{ height: 10 }
+
         }
 
         Item{ width: 20 }
@@ -136,22 +180,25 @@ Item {
             // 1. Main Card Container (provides border and rounded corners)
             Rectangle {
                 Layout.fillHeight: true
-                        Layout.fillWidth: true
+                Layout.fillWidth: true
                 radius: 8   // Rounded corners
                 border.color: "#e0e0e0" // Thin light grey border
-                border.width: 1
+                border.width: 0
                 clip: true // Ensures content doesn't spill out of rounded corners
+
 
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
+                    anchors.bottomMargin: 20
 
                     // --- Header Section ---
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 50 // Fixed height for header
                         color: "#eff2f5" // Light grey/blue background from image
-
+                        topLeftRadius:  8
+                        topRightRadius: 8
                         // Use RowLayout to align Icon and Text side-by-side
                         RowLayout {
                             anchors.fill: parent
@@ -174,11 +221,7 @@ Item {
                         }
 
                         // Small bottom border for the header to separate it from body
-                        Rectangle {
-                            width: parent.width; height: 1
-                            color: "#e0e0e0"
-                            anchors.bottom: parent.bottom
-                        }
+
                     }
 
                     // --- Body Section ---
@@ -186,6 +229,11 @@ Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         color: "white"
+                        border.color: "#EBEEF3"
+                        bottomLeftRadius:  8
+                        bottomRightRadius: 8
+
+
 
                         Text {
                             text: "- Is this word concrete?\n\n- Other stupid questions to ask when you see a word you don't know."
@@ -199,7 +247,9 @@ Item {
                             verticalAlignment: Text.AlignTop
                         }
                     }
+
                 }
+
             }
         }
 

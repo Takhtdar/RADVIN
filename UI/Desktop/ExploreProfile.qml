@@ -14,6 +14,9 @@ Item {
         anchors.fill: parent
         //Layout.fillWidth: true
         //Layout.fillHeight: true
+        /*
+
+          Put this in aside left bar.
 
         // buttons at top
         RowLayout{
@@ -85,35 +88,81 @@ Item {
             }
 
         }
-
+*/
+        Item { height: 10}
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+
+
 
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 10
 
-                // text to study
-                Rectangle {
-                    Layout.fillWidth: true
-                    z: 100
-                    id: textBackground
-                    width: parent.width
-                    color: "#eff6ff"
-                    radius: 8
-                    implicitHeight: originalSentenceText.implicitHeight + 40
+                ColumnLayout{
+                    spacing: 0
 
-                    Text {
-                        id: originalSentenceText
-                        font.pointSize: 12
-                        width: parent.width - 40
-                        wrapMode: Text.Wrap
-                        text: "Original sentence will appear here..."
-                        anchors.centerIn: parent
-                        textFormat: Text.MarkdownText
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40 // Fixed height for header
+                        color: "#eff2f5" // Light grey/blue background from image
+                        topLeftRadius:  8
+                        topRightRadius: 8
+                        // Use RowLayout to align Icon and Text side-by-side
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 15
+                            anchors.rightMargin: 15
+
+                            // Header Text
+                            Text {
+                                text: " 🎓️ Source Context"
+                                font.pixelSize: 16
+                                font.bold: true
+                                color: "black"
+                                Layout.alignment: Qt.AlignVCenter // Centers text vertically
+                            }
+
+                            // Spacer to push everything else to the left
+                            Item { Layout.fillWidth: true }
+                        }
                     }
+
+
+
+                    // text to study
+                    Rectangle {
+                        Layout.fillWidth: true
+                        z: 100
+                        id: textBackground
+                        width: parent.width
+                        // color: "#eff6ff"
+                        //radius: 8
+                        bottomLeftRadius:  8
+                        bottomRightRadius: 8
+                        implicitHeight: originalSentenceText.implicitHeight + 40
+
+                        border.color: parent.activeFocus ? "#2196F3" : "#EBEEF3"
+
+                        color: "transparent"
+                        //anchors.fill: parent
+
+                        //anchors.top: parent.top
+                        //anchors.topMargin: -2 // Hides top border (prev. trick)
+                        Text {
+                            //topPadding: 20
+                            id: originalSentenceText
+                            font.pointSize: 12
+                            width: parent.width - 40
+                            wrapMode: Text.Wrap
+                            text: "Original sentence will appear here..."
+                            anchors.centerIn: parent
+                            textFormat: Text.MarkdownText
+                        }
+                    }
+
                 }
 
                 Item { height: 10 }
@@ -125,6 +174,10 @@ Item {
 
                 Item { height: 10 }
             }
+
+
+
+
 
             Item { width: 10 }
 

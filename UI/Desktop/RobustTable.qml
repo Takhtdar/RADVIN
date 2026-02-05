@@ -22,16 +22,25 @@ Item {
             id: header
             width: parent.width
             height: 40
-            z: 2 // Keep header on top if needed visually
+            spacing: -1 // <--- Overlaps the 1px borders to remove the "gap"
+
 
             Repeater {
                 model: root.tableColumns
-                delegate: Rectangle {
-                    width: root.columnWidth
-                    height: parent.height
-                    color: "#e0e0e0"
-                    border.color: "#cccccc"
-                    border.width: 1
+                    delegate: Rectangle {
+                        width: root.columnWidth
+                        height: parent.height
+                        color: "#EBEEF3"
+                        border.color: "#EBEEF3"
+                        border.width: 1
+
+                        // Conditionally apply radius based on the column index
+                        topLeftRadius: index === 0 ? 8 : 0
+                        topRightRadius: index === root.tableColumns.length - 1 ? 8 : 0
+
+                        // Ensure bottom corners are always square to meet the data rows
+                        bottomLeftRadius: 0
+                        bottomRightRadius: 0
 
                     Text {
                         anchors.centerIn: parent
@@ -56,7 +65,8 @@ Item {
             // USE RowLayout here to handle dynamic heights
             delegate: RowLayout {
                 width: listView.width
-                spacing: 0
+                spacing: -1 // <--- Overlaps borders in the data rows too
+
 
                 property var rowData: modelData
 
@@ -74,7 +84,7 @@ Item {
                         // We set a minimum of 40, or the text height + 20px padding.
                         Layout.preferredHeight: Math.max(40, textItem.implicitHeight + 20)
 
-                        border.color: "#eeeeee"
+                        border.color: "#EBEEF3"
                         border.width: 1
 
                         Text {
